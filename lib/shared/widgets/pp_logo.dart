@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 
-/// Logo tipográfica do Musical Map
+/// Logo tipográfica do Music Map
 /// Design simples e moderno para uso na UI
 class PPLogo extends StatelessWidget {
   final bool showTagline;

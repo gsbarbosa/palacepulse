@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 
-/// Dropdown reutilizável do Musical Map
+/// Dropdown reutilizável do Music Map
 /// Estilo consistente com PPInput
 class PPDropdown<T> extends StatelessWidget {
   final String label;

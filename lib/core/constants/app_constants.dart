@@ -1,9 +1,9 @@
-/// Constantes da aplicação Musical Map
+/// Constantes da aplicação Music Map
 class AppConstants {
   AppConstants._();
 
   // Marca
-  static const String appName = 'Musical Map';
+  static const String appName = 'Music Map';
   static const String appTagline = 'O mapa da cena musical';
 
   /// Vagas para o pré-lançamento
