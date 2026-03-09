@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 
-/// Card reutilizável do Musical Map
+/// Card reutilizável do Music Map
 /// Cantos arredondados, fundo surface, borda discreta
 class PPCard extends StatelessWidget {
   final Widget child;

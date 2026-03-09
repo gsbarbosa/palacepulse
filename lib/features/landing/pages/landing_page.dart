@@ -163,7 +163,7 @@ class LandingPage extends ConsumerWidget {
         child: Column(
           children: [
             Text(
-              'O que é o Musical Map?',
+              'O que é o Music Map?',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 16),

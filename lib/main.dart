@@ -13,20 +13,20 @@ void main() async {
   );
   runApp(
     const ProviderScope(
-      child: MusicalMapApp(),
+      child: MusicMapApp(),
     ),
   );
 }
 
-class MusicalMapApp extends ConsumerWidget {
-  const MusicalMapApp({super.key});
+class MusicMapApp extends ConsumerWidget {
+  const MusicMapApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'Musical Map',
+      title: 'Music Map',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
       routerConfig: router,

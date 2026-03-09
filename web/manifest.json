@@ -1,6 +1,6 @@
 {
-    "name": "Musical Map",
-    "short_name": "Musical Map",
+    "name": "Music Map",
+    "short_name": "Music Map",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#111315",

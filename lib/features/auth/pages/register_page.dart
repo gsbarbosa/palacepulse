@@ -194,7 +194,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                 Text(
                   _accountType == _AccountType.band
                       ? 'Use o email da banda para criar sua conta no mapa.'
-                      : 'Cadastre-se para gerenciar várias bandas no Musical Map.',
+                      : 'Cadastre-se para gerenciar várias bandas no Music Map.',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 24),

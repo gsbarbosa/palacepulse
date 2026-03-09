@@ -1,4 +1,4 @@
-# Musical Map
+# Music Map
 
 **O mapa da cena musical**
 
@@ -133,7 +133,12 @@ flutter run -d web-server
 flutter build web
 ```
 
-Os arquivos estarão em `build/web/`. Você pode fazer deploy no Firebase Hosting, Vercel, Netlify, etc.
+Os arquivos estarão em `build/web/`.
+
+## Deploy (Firebase Hosting)
+
+O projeto está configurado para deploy automático no Firebase Hosting via GitHub Actions.  
+Para migrar ou configurar o deploy, veja **[docs/MIGRACAO-FIREBASE.md](docs/MIGRACAO-FIREBASE.md)**.
 
 ## Rotas
 
@@ -185,4 +190,4 @@ O código está preparado para evoluir com:
 
 ---
 
-**Musical Map** — O mapa da cena musical.
+**Music Map** — O mapa da cena musical.

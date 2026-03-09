@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 
-/// Loading overlay e spinner do Musical Map
+/// Loading overlay e spinner do Music Map
 class PPLoading extends StatelessWidget {
   final String? message;
 

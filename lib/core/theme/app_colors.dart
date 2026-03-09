@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Paleta oficial do Musical Map
+/// Paleta oficial do Music Map
 /// Usado para manter consistência visual em toda a aplicação
 class AppColors {
   AppColors._();

@@ -4,7 +4,7 @@ import '../../core/theme/app_colors.dart';
 
 enum PPButtonVariant { primary, secondary, outline }
 
-/// Botão reutilizável do Musical Map
+/// Botão reutilizável do Music Map
 /// Variantes: primary (verde), secondary (roxo), outline
 class PPButton extends StatefulWidget {
   final String label;
