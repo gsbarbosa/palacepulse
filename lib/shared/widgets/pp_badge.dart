@@ -4,7 +4,7 @@ import '../../core/theme/app_colors.dart';
 
 enum PPBadgeVariant { primary, secondary, success }
 
-/// Badge reutilizável do Palace Pulse
+/// Badge reutilizável do Musical Map
 class PPBadge extends StatelessWidget {
   final String label;
   final PPBadgeVariant variant;

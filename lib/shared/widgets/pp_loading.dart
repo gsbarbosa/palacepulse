@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 
-/// Loading overlay e spinner do Palace Pulse
+/// Loading overlay e spinner do Musical Map
 class PPLoading extends StatelessWidget {
   final String? message;
 

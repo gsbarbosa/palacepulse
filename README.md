@@ -1,6 +1,6 @@
-# Palace Pulse
+# Musical Map
 
-**O mapa da cena independente**
+**O mapa da cena musical**
 
 Plataforma inicial de mapeamento da cena musical independente. Artistas e bandas se cadastram para garantir acesso antecipado ao sistema.
 
@@ -185,4 +185,4 @@ O código está preparado para evoluir com:
 
 ---
 
-**Palace Pulse** — O mapa da cena independente.
+**Musical Map** — O mapa da cena musical.
