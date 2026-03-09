@@ -1,10 +1,10 @@
-/// Constantes da aplicação Palace Pulse
+/// Constantes da aplicação Musical Map
 class AppConstants {
   AppConstants._();
 
   // Marca
-  static const String appName = 'Palace Pulse';
-  static const String appTagline = 'O mapa da cena independente';
+  static const String appName = 'Musical Map';
+  static const String appTagline = 'O mapa da cena musical';
 
   /// Vagas para o pré-lançamento
   static const int earlyAccessLimit = 500;

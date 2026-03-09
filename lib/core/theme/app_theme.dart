@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
 
-/// Tema global do Palace Pulse
+/// Tema global do Musical Map
 /// Design premium, dark, com contraste elegante
 class AppTheme {
   AppTheme._();

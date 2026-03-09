@@ -60,7 +60,7 @@ class LandingPage extends ConsumerWidget {
             const SizedBox(height: 16),
             Text(
               'Cadastre sua banda ou projeto musical e garanta acesso antecipado '
-              'ao mapa da cena independente. Estamos preparando novas funcionalidades '
+              'ao mapa da cena musical. Estamos preparando novas funcionalidades '
               'para conectar artistas, bandas e oportunidades.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -163,7 +163,7 @@ class LandingPage extends ConsumerWidget {
         child: Column(
           children: [
             Text(
-              'O que é o Palace Pulse?',
+              'O que é o Musical Map?',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 16),
@@ -201,7 +201,7 @@ class LandingPage extends ConsumerWidget {
               children: [
                 _benefitCard(context, 'Primeiro no mapa', 'Seu perfil será priorizado quando o mapa público for lançado.'),
                 _benefitCard(context, 'Novas funcionalidades', 'Acesso antecipado a buscas, descobertas e conexões.'),
-                _benefitCard(context, 'Cena independente', 'Faça parte da base que conecta artistas e oportunidades.'),
+                _benefitCard(context, 'Cena musical', 'Faça parte da base que conecta artistas e oportunidades.'),
               ],
             ),
           ],

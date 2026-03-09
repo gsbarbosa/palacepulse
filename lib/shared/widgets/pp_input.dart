@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Input reutilizável do Palace Pulse
+/// Input reutilizável do Musical Map
 /// Wrapper do TextFormField com estilo consistente
 class PPInput extends StatelessWidget {
   final String label;

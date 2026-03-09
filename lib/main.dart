@@ -13,20 +13,20 @@ void main() async {
   );
   runApp(
     const ProviderScope(
-      child: PalacePulseApp(),
+      child: MusicalMapApp(),
     ),
   );
 }
 
-class PalacePulseApp extends ConsumerWidget {
-  const PalacePulseApp({super.key});
+class MusicalMapApp extends ConsumerWidget {
+  const MusicalMapApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'Palace Pulse',
+      title: 'Musical Map',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
       routerConfig: router,

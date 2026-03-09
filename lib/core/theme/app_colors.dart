@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Paleta oficial do Palace Pulse
+/// Paleta oficial do Musical Map
 /// Usado para manter consistência visual em toda a aplicação
 class AppColors {
   AppColors._();

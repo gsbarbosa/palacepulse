@@ -182,7 +182,7 @@ class _DashboardContentState extends ConsumerState<_DashboardContent> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Você já faz parte da base inicial do Palace Pulse e entrou no mapa da cena independente. '
+              'Você já faz parte da base inicial do Musical Map e entrou no mapa da cena musical. '
               'Estamos construindo as próximas funcionalidades da plataforma para conectar artistas, bandas e oportunidades. '
               'Novidades em breve.',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
