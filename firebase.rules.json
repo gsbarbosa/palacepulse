@@ -6,6 +6,12 @@
         ".write": "auth != null"
       }
     },
+    "admin_users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": false
+      }
+    },
     "users": {
       "$uid": {
         ".read": "auth != null && auth.uid == $uid",
@@ -13,8 +19,10 @@
       }
     },
     "profiles": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      "$profileId": {
+        ".read": "auth != null || (data.child('status').val() == 'active' && data.child('publicProfile').val() != false)",
+        ".write": "auth != null && ((!data.exists() && newData.child('ownerUserId').val() == auth.uid) || (data.exists() && data.child('ownerUserId').val() == auth.uid))"
+      }
     },
     "profiles_by_owner": {
       "$uid": {

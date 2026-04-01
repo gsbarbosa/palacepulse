@@ -8,6 +8,7 @@ import '../../../shared/models/user_profile.dart';
 import '../../../shared/widgets/pp_button.dart';
 import '../../../shared/widgets/pp_dropdown.dart';
 import '../../../shared/widgets/pp_input.dart';
+import 'profile_photo_section.dart';
 
 /// Formulário reutilizável de perfil de artista
 /// Usado em complete-profile e edit-profile
@@ -53,11 +54,15 @@ class _ProfileFormState extends State<ProfileForm> {
   String? _selectedGenre;
   List<String> _interests = [];
   bool _declarationAccepted = false;
+  late bool _publicProfile;
+  String? _photoUrl;
 
   @override
   void initState() {
     super.initState();
     final p = widget.initialProfile;
+    _publicProfile = p?.publicProfile ?? true;
+    _photoUrl = p?.photoUrl;
     _artistNameController = TextEditingController(text: p?.artistName ?? '');
     _cityController = TextEditingController(text: p?.city ?? '');
     _stateController = TextEditingController(text: p?.state ?? '');
@@ -162,8 +167,10 @@ class _ProfileFormState extends State<ProfileForm> {
       tiktok: _tiktokController.text.trim().isEmpty ? null : _tiktokController.text.trim(),
       bio: _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
       interests: _interests,
-      earlyAccess: true,
-      status: 'active',
+      earlyAccess: widget.initialProfile?.earlyAccess ?? true,
+      status: widget.initialProfile?.status ?? 'active',
+      publicProfile: _publicProfile,
+      photoUrl: _photoUrl,
       createdAt: widget.initialProfile?.createdAt ?? now,
       updatedAt: now,
       representationDeclarationAcceptedAt:
@@ -180,6 +187,27 @@ class _ProfileFormState extends State<ProfileForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (widget.initialProfile != null && widget.initialProfile!.id.isNotEmpty) ...[
+            ProfilePhotoSection(
+              ownerUserId: widget.ownerUserId,
+              profileId: widget.initialProfile!.id,
+              photoUrl: _photoUrl,
+              onUrlChanged: (u) => setState(() => _photoUrl = u),
+            ),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Perfil público'),
+              subtitle: Text(
+                _publicProfile
+                    ? 'Seu perfil pode aparecer no link compartilhável e na descoberta pública.'
+                    : 'Seu perfil fica oculto da página pública.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              value: _publicProfile,
+              onChanged: (v) => setState(() => _publicProfile = v),
+            ),
+            const SizedBox(height: 16),
+          ],
           PPInput(
             label: 'Nome da banda ou artista *',
             hint: 'Como você ou sua banda se apresenta',

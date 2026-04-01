@@ -231,4 +231,67 @@ class ProfileService {
     final type = map['accountType'] as String? ?? 'person';
     return type == 'band' ? 'band' : 'person';
   }
+
+  /// Lista [AppConstants.adminEmails] ou nó `admin_users/{uid}` no Realtime Database
+  Future<bool> isAdmin(String uid, String? email) async {
+    final e = email?.toLowerCase().trim();
+    if (e != null && e.isNotEmpty) {
+      for (final a in AppConstants.adminEmails) {
+        if (a.toLowerCase().trim() == e) return true;
+      }
+    }
+    final snap = await _db.child(AppConstants.adminUsersPath).child(uid).get();
+    if (!snap.exists || snap.value == null) return false;
+    final v = snap.value;
+    return v == true || v == 'true';
+  }
+
+  /// Lista todos os perfis (uso interno / admin)
+  Future<List<UserProfile>> getAllProfiles() async {
+    final snapshot = await _db.child(AppConstants.profilesPath).get();
+    if (!snapshot.exists || snapshot.value == null) return [];
+    final data = snapshot.value as Map<dynamic, dynamic>;
+    final list = <UserProfile>[];
+    for (final entry in data.entries) {
+      list.add(
+        UserProfile.fromMap(
+          entry.key as String,
+          Map<String, dynamic>.from(entry.value as Map),
+        ),
+      );
+    }
+    list.sort((a, b) => a.artistName.compareTo(b.artistName));
+    return list;
+  }
+
+  /// Desativa todos os perfis e marca a conta como inativa (soft delete)
+  Future<void> deactivateUserAccount(String userId) async {
+    final profiles = await getProfilesForUser(userId);
+    final now = DateTime.now();
+    for (final p in profiles) {
+      final updated = p.copyWith(
+        status: 'inactive',
+        publicProfile: false,
+        updatedAt: now,
+      );
+      await _db.child(AppConstants.profilesPath).child(p.id).set(updated.toMap());
+    }
+    await _db.child(AppConstants.usersPath).child(userId).update({
+      'accountStatus': 'inactive',
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  /// Remove perfis, vínculos e registro do usuário no Realtime Database
+  Future<void> deleteUserDatabaseData(String userId) async {
+    final profiles = await getProfilesForUser(userId);
+    for (final p in profiles) {
+      await _db.child(AppConstants.profilesPath).child(p.id).remove();
+      try {
+        await _db.child(AppConstants.totalProfilesPath).set(ServerValue.increment(-1));
+      } catch (_) {}
+    }
+    await _db.child(AppConstants.profilesByOwnerPath).child(userId).remove();
+    await _db.child(AppConstants.usersPath).child(userId).remove();
+  }
 }

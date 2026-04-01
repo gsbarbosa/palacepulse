@@ -46,6 +46,16 @@ class AuthService {
     await _auth.signOut();
   }
 
+  Future<void> sendPasswordResetEmail(String email) async {
+    await _auth.sendPasswordResetEmail(email: email.trim());
+  }
+
+  Future<void> deleteCurrentUser() async {
+    final u = _auth.currentUser;
+    if (u == null) throw StateError('no_user');
+    await u.delete();
+  }
+
   String? getAuthErrorMessage(String code) {
     switch (code) {
       case 'user-not-found':
@@ -63,6 +73,10 @@ class AuthService {
       case 'popup-closed-by-user':
       case 'popup_blocked':
         return 'Login cancelado ou popup bloqueado.';
+      case 'user-disabled':
+        return 'Esta conta foi desativada.';
+      case 'requires-recent-login':
+        return 'Por segurança, faça login novamente antes de excluir a conta.';
       default:
         return 'Erro ao autenticar. Tente novamente.';
     }

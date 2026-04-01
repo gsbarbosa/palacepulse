@@ -52,7 +52,7 @@ class LandingPage extends ConsumerWidget {
             ),
             const SizedBox(height: 32),
             Text(
-              'Entre agora para a base inicial do ${AppConstants.appName}',
+              'Pré-lançamento: entre na cena fundadora do ${AppConstants.appName}',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     color: AppColors.textPrimary,
@@ -60,8 +60,8 @@ class LandingPage extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Cadastre sua banda ou projeto musical e garanta acesso antecipado '
-              'ao mapa da cena musical. Estamos preparando novas funcionalidades '
+              'Cadastre sua banda ou projeto musical e garanta lugar na cena fundadora '
+              'e acesso antecipado ao mapa da cena musical. Estamos preparando novas funcionalidades '
               'para conectar artistas, bandas e oportunidades.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(

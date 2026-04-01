@@ -17,6 +17,10 @@ class AppConstants {
   static const String usersPath = 'users';
   static const String profilesPath = 'profiles';
   static const String profilesByOwnerPath = 'profiles_by_owner';
+  static const String adminUsersPath = 'admin_users';
+
+  /// Emails com acesso ao painel admin (export CSV). Opcional: use também `admin_users/{uid}` no Realtime Database.
+  static const List<String> adminEmails = [];
 
   // Valores de perfil
   static const String artistTypeSolo = 'artista solo';

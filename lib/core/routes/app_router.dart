@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/admin/pages/admin_page.dart';
+import '../../features/auth/pages/forgot_password_page.dart';
 import '../../features/auth/pages/login_page.dart';
 import '../../features/auth/pages/register_page.dart';
 import '../../features/dashboard/pages/dashboard_page.dart';
@@ -10,6 +12,7 @@ import '../../features/legal/pages/privacy_page.dart';
 import '../../features/legal/pages/terms_page.dart';
 import '../../features/profile/pages/complete_profile_page.dart';
 import '../../features/profile/pages/edit_profile_page.dart';
+import '../../features/public/pages/public_artist_page.dart';
 import '../providers/providers.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -24,17 +27,23 @@ GoRouter createAppRouter(Ref ref) {
       final authState = ref.read(authStateProvider);
       final user = authState.valueOrNull ??
           ref.read(authServiceProvider).currentUser;
-      final isAuthRoute = state.matchedLocation == '/login' ||
-          state.matchedLocation == '/register' ||
-          state.matchedLocation == '/';
-      final isCompleteProfile = state.matchedLocation.startsWith('/complete-profile');
-      final isDashboard = state.matchedLocation == '/dashboard';
-      final isEditProfile = state.matchedLocation.startsWith('/edit-profile');
+
+      final loc = state.matchedLocation;
+      final isDashboard = loc == '/dashboard';
+      final isEditProfile = loc.startsWith('/edit-profile');
+      final isCompleteProfile = loc.startsWith('/complete-profile');
+      final isAdminRoute = loc.startsWith('/admin');
 
       if (user == null) {
-        if (isDashboard || isEditProfile || isCompleteProfile) {
+        if (isDashboard || isEditProfile || isCompleteProfile || isAdminRoute) {
           return '/login';
         }
+        return null;
+      }
+
+      if (isAdminRoute) {
+        final admin = await ref.read(profileServiceProvider).isAdmin(user.uid, user.email);
+        if (!admin) return '/dashboard';
         return null;
       }
 
@@ -71,12 +80,27 @@ GoRouter createAppRouter(Ref ref) {
         builder: (_, __) => const RegisterPage(),
       ),
       GoRoute(
+        path: '/forgot-password',
+        builder: (_, __) => const ForgotPasswordPage(),
+      ),
+      GoRoute(
+        path: '/artist/:profileId',
+        builder: (context, state) {
+          final id = state.pathParameters['profileId'] ?? '';
+          return PublicArtistPage(profileId: id);
+        },
+      ),
+      GoRoute(
         path: '/complete-profile',
         builder: (_, __) => const CompleteProfilePage(),
       ),
       GoRoute(
         path: '/dashboard',
         builder: (_, __) => const DashboardPage(),
+      ),
+      GoRoute(
+        path: '/admin',
+        builder: (_, __) => const AdminPage(),
       ),
       GoRoute(
         path: '/edit-profile/:profileId',

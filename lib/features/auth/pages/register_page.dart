@@ -258,7 +258,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Use o email para criar sua conta no mapa.',
+                  'Pré-lançamento: seu cadastro reserva lugar na cena fundadora e no mapa.',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 32),

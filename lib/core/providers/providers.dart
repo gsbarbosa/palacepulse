@@ -49,3 +49,9 @@ final userAccountTypeProvider =
     FutureProvider.autoDispose.family<String, String>((ref, userId) async {
   return ref.read(profileServiceProvider).getUserAccountType(userId);
 });
+
+final isAdminProvider = FutureProvider.autoDispose<bool>((ref) async {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return false;
+  return ref.read(profileServiceProvider).isAdmin(user.uid, user.email);
+});

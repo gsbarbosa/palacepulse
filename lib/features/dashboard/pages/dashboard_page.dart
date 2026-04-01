@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +12,7 @@ import '../../../shared/widgets/pp_button.dart';
 import '../../../shared/widgets/pp_card.dart';
 import '../../../shared/widgets/pp_logo.dart';
 import '../widgets/brazil_map_widget.dart';
+import '../widgets/dashboard_gamification.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -74,12 +76,14 @@ class _DashboardContentState extends ConsumerState<_DashboardContent> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            _buildHeader(context),
+            _buildHeader(context, ref),
             if (widget.profiles.length > 1) _buildProfileSelector(context),
             _buildMainContent(context),
             _buildMapSection(context, ref),
+            _buildGamification(context),
             _buildStatusCard(context),
             _buildProfileSummary(context),
+            _buildAccountSection(context, ref),
             _buildActions(context, ref),
           ],
         ),
@@ -87,7 +91,8 @@ class _DashboardContentState extends ConsumerState<_DashboardContent> {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, WidgetRef ref) {
+    final isAdmin = ref.watch(isAdminProvider).valueOrNull == true;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
@@ -96,10 +101,131 @@ class _DashboardContentState extends ConsumerState<_DashboardContent> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const PPLogo(showTagline: false, fontSize: 24),
+            if (isAdmin)
+              TextButton(
+                onPressed: () => context.push('/admin'),
+                child: const Text('Admin'),
+              ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildGamification(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: PageContainer(
+        maxWidth: 600,
+        child: ProfileGamificationSection(profile: _selectedProfile),
+      ),
+    );
+  }
+
+  Widget _buildAccountSection(BuildContext context, WidgetRef ref) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      child: PageContainer(
+        maxWidth: 600,
+        child: PPCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Conta',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Desativar oculta seus perfis da página pública. Excluir remove dados e encerra a conta.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => _confirmDeactivate(context, ref),
+                child: const Text('Desativar conta'),
+              ),
+              TextButton(
+                onPressed: () => _confirmDelete(context, ref),
+                child: const Text(
+                  'Excluir conta',
+                  style: TextStyle(color: AppColors.error),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeactivate(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Desativar conta'),
+        content: const Text(
+          'Seus perfis ficam inativos e deixam de aparecer na página pública. '
+          'Você será desconectado.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Desativar')),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await ref.read(profileServiceProvider).deactivateUserAccount(widget.userId);
+      await ref.read(authServiceProvider).signOut();
+      if (context.mounted) context.go('/');
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Não foi possível desativar: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Excluir conta'),
+        content: const Text(
+          'Esta ação remove seus perfis e dados da plataforma e encerra a sessão. Não dá para desfazer.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Excluir', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await ref.read(profileServiceProvider).deleteUserDatabaseData(widget.userId);
+      await ref.read(authServiceProvider).deleteCurrentUser();
+      if (context.mounted) context.go('/');
+    } on FirebaseAuthException catch (e) {
+      final msg = ref.read(authServiceProvider).getAuthErrorMessage(e.code);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg ?? e.message ?? 'Erro ao excluir')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro: $e')),
+        );
+      }
+    }
   }
 
   Widget _buildProfileSelector(BuildContext context) {
@@ -166,7 +292,14 @@ class _DashboardContentState extends ConsumerState<_DashboardContent> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const PPBadge(label: 'Early Access', variant: PPBadgeVariant.primary),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: const [
+                PPBadge(label: 'Early Access', variant: PPBadgeVariant.primary),
+                PPBadge(label: 'Cena fundadora', variant: PPBadgeVariant.secondary),
+              ],
+            ),
             const SizedBox(height: 24),
             Text(
               _selectedProfile.artistName,

@@ -113,6 +113,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         validator: Validators.password,
                         onChanged: (_) => setState(() => _errorMessage = null),
                       ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () => context.push('/forgot-password'),
+                          child: const Text('Esqueci minha senha'),
+                        ),
+                      ),
                       if (_errorMessage != null) ...[
                         const SizedBox(height: 16),
                         Container(
