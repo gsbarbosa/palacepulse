@@ -7,8 +7,10 @@ String artistPublicPageUrl(String profileId) {
   return '${_siteOrigin()}/artist/$profileId';
 }
 
-/// URL para WhatsApp/Instagram: **tem** de ser path HTTP (`/share/artist/...`).
+/// URL para WhatsApp/Instagram: path `/share/artist/...` (Hosting → Cloud Function).
+/// Query `id` duplica o id: na CF v2 o path às vezes não chega inteiro; a função aceita `?id=`.
 /// Nunca use fragmento `#/share/...` — o servidor não recebe o que vem depois de `#`.
 String artistSocialShareUrl(String profileId) {
-  return '${_siteOrigin()}/share/artist/$profileId';
+  final q = Uri.encodeQueryComponent(profileId);
+  return '${_siteOrigin()}/share/artist/$profileId?id=$q';
 }

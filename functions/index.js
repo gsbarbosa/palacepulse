@@ -4,32 +4,149 @@
  * Domínio "from" deve estar verificado no Resend.
  */
 const functions = require('firebase-functions/v1');
+const {onRequest} = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 
 admin.initializeApp();
 
-/** Hosting às vezes encaminha com req.path === '/'; tentar várias fontes. */
+const SHARE_BRAND = 'Palace Pulse';
+
+/**
+ * Hosting + Cloud Functions 2nd gen: o path público (/share/artist/:id) muitas vezes
+ * não vem em req.path (fica '/', ou só o sufixo interno). Varre URL, originalUrl e
+ * todos os headers — inclusive x-firebase-hosting-path.
+ */
 function extractProfileIdFromRequest(req) {
-  const chunks = [
-    req.path,
-    req.url,
-    req.originalUrl,
-    req.get('x-forwarded-uri'),
-    req.get('x-forwarded-url'),
-    req.get('x-original-url'),
-    req.get('x-firebase-hosting-path'),
-  ]
-    .filter(Boolean)
-    .map((s) => String(s).split('?')[0].split('#')[0]);
-  for (const c of chunks) {
-    const m = c.match(/\/share\/artist\/([^/?]+)/);
-    if (m) return m[1];
-    const m2 = c.match(/share\/artist\/([^/?]+)/);
-    if (m2) return m2[1];
+  const patterns = [
+    /\/artistShare\/share\/artist\/([^/?#]+)/,
+    /\/shareArtistPublic\/share\/artist\/([^/?#]+)/,
+    /\/share\/artist\/([^/?#]+)/,
+    /share\/artist\/([^/?#]+)/,
+    // Acesso direto ao hostname Cloud Run (*.run.app): path costuma ser /artist/:id
+    /\/artist\/([^/?#]+)/,
+  ];
+
+  const tryString = (raw) => {
+    if (raw == null) return null;
+    const s = String(raw).trim();
+    if (!s) return null;
+    let t = s.split('?')[0].split('#')[0];
+    try {
+      t = decodeURIComponent(t);
+    } catch (_) {
+      /* ignore */
+    }
+    for (const re of patterns) {
+      const m = t.match(re);
+      if (m && m[1]) return m[1];
+    }
+    return null;
+  };
+
+  const pushAll = (arr, val) => {
+    if (val == null) return;
+    if (Array.isArray(val)) {
+      val.forEach((v) => pushAll(arr, v));
+      return;
+    }
+    arr.push(String(val));
+  };
+
+  const buckets = [];
+  pushAll(buckets, req.path);
+  pushAll(buckets, req.url);
+  pushAll(buckets, req.originalUrl);
+
+  if (typeof req.get === 'function') {
+    const headerNames = [
+      'x-forwarded-uri',
+      'x-forwarded-url',
+      'x-original-url',
+      'x-firebase-hosting-path',
+      'x-envoy-original-path',
+      'forwarded',
+    ];
+    for (const name of headerNames) {
+      pushAll(buckets, req.get(name));
+    }
   }
+
+  if (req.headers && typeof req.headers === 'object') {
+    for (const key of Object.keys(req.headers)) {
+      pushAll(buckets, req.headers[key]);
+    }
+  }
+
+  if (req.rawRequest) {
+    pushAll(buckets, req.rawRequest.url);
+    const rh = req.rawRequest.headers;
+    if (rh && typeof rh === 'object') {
+      for (const key of Object.keys(rh)) {
+        pushAll(buckets, rh[key]);
+      }
+    }
+  }
+
   const q = req.query && (req.query.id || req.query.profileId);
-  if (q && typeof q === 'string' && q.length < 129) return q;
+  if (q && typeof q === 'string' && q.length > 0 && q.length < 129) return q;
+
+  const rawUrl = String(req.originalUrl || req.url || '');
+  const qMark = rawUrl.indexOf('?');
+  if (qMark !== -1) {
+    try {
+      const params = new URLSearchParams(rawUrl.slice(qMark + 1));
+      const fromQs = params.get('id') || params.get('profileId');
+      if (fromQs && fromQs.length > 0 && fromQs.length < 129) return fromQs;
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  for (const b of buckets) {
+    const id = tryString(b);
+    if (id) return id;
+  }
+
+  const pathOnly = String(req.path || '');
+  const segs = pathOnly.split('/').filter(Boolean);
+  const ai = segs.indexOf('artist');
+  if (ai > 0 && segs[ai - 1] === 'share' && segs[ai + 1]) {
+    return segs[ai + 1];
+  }
+  if (segs.length >= 2 && segs[0] === 'artist' && segs[1]) {
+    return segs[1];
+  }
+
   return null;
+}
+
+/**
+ * Links públicos devem apontar para o domínio do Hosting (SPA), não para *.run.app.
+ * Evita meta refresh para URL da CF (404) e OG com URL errada.
+ */
+function canonicalSiteOrigin(req) {
+  const host = (req.get('host') || '').toLowerCase();
+  const internalHost =
+    host.endsWith('.run.app') ||
+    host.includes('.cloudfunctions.net') ||
+    host === '127.0.0.1' ||
+    host.startsWith('localhost');
+  if (internalHost) {
+    const fromEnv = process.env.PUBLIC_SITE_ORIGIN || process.env.SITE_ORIGIN;
+    if (fromEnv && String(fromEnv).trim()) {
+      return String(fromEnv).trim().replace(/\/$/, '');
+    }
+    const projectId =
+      (admin.app() && admin.app().options && admin.app().options.projectId) ||
+      process.env.GCLOUD_PROJECT ||
+      process.env.GCP_PROJECT ||
+      '';
+    if (projectId) {
+      return `https://${projectId}.web.app`;
+    }
+  }
+  const proto = req.get('x-forwarded-proto') || 'https';
+  return `${proto}://${req.get('host') || 'localhost'}`;
 }
 
 function escHtml(s) {
@@ -116,53 +233,63 @@ exports.recordProfileView = functions.https.onCall(async (data) => {
 
 /**
  * HTML com Open Graph para WhatsApp/Instagram.
- * Hosting rewrite: /share/artist/** → esta função
+ * Hosting rewrite: /share/artist/** → shareArtistPublic (firebase.json)
+ *
+ * Nome **diferente** de `artistShare`: Firebase não permite upgrade 1st Gen → 2nd Gen no mesmo nome.
+ * Depois do deploy OK: `firebase functions:delete artistShare --region us-central1` (remove a 1st Gen órfã).
+ *
+ * v2 + invoker: 'public' — link público precisa de invocação anônima (evita 403 no GCP).
  */
-exports.artistShare = functions.https.onRequest(async (req, res) => {
-  res.set('Cache-Control', 'public, max-age=120, s-maxage=300');
-  const host = req.get('host') || 'localhost';
-  const proto = req.get('x-forwarded-proto') || 'https';
-  const baseUrl = `${proto}://${host}`;
+exports.shareArtistPublic = onRequest(
+  {
+    region: 'us-central1',
+    invoker: 'public',
+    memory: '256MiB',
+    timeoutSeconds: 30,
+  },
+  async (req, res) => {
+    res.set('Cache-Control', 'public, max-age=120, s-maxage=300');
+    const siteOrigin = canonicalSiteOrigin(req);
 
-  const profileId = extractProfileIdFromRequest(req);
-  if (!profileId) {
-    res.status(404).send('<!DOCTYPE html><html><body>Link inválido</body></html>');
-    return;
-  }
+    const profileId = extractProfileIdFromRequest(req);
+    if (!profileId) {
+      res.status(404).send('<!DOCTYPE html><html><body>Link inválido</body></html>');
+      return;
+    }
 
-  const snap = await admin.database().ref(`profiles/${profileId}`).once('value');
-  if (!snap.exists()) {
-    res.status(404).send('<!DOCTYPE html><html><body>Perfil não encontrado</body></html>');
-    return;
-  }
-  const p = snap.val();
-  if (p.status !== 'active' || p.publicProfile === false) {
-    res.status(404).send('<!DOCTYPE html><html><body>Perfil indisponível</body></html>');
-    return;
-  }
+    const snap = await admin.database().ref(`profiles/${profileId}`).once('value');
+    if (!snap.exists()) {
+      res.status(404).send('<!DOCTYPE html><html><body>Perfil não encontrado</body></html>');
+      return;
+    }
+    const p = snap.val();
+    if (p.status !== 'active' || p.publicProfile === false) {
+      res.status(404).send('<!DOCTYPE html><html><body>Perfil indisponível</body></html>');
+      return;
+    }
 
-  const title = escHtml(p.artistName || 'Music Map');
-  const city = p.city || '';
-  const state = p.state || '';
-  const desc = `${city}${city && state ? ' – ' : ''}${state} · ${p.genre || 'Artista'} no Music Map`;
-  const photo = p.photoUrl && String(p.photoUrl).trim() ? String(p.photoUrl).trim() : '';
-  const shareUrl = `${baseUrl}/share/artist/${profileId}`;
-  const appUrl = `${baseUrl}/artist/${profileId}`;
+    const title = escHtml(p.artistName || SHARE_BRAND);
+    const city = p.city || '';
+    const state = p.state || '';
+    const desc = `${city}${city && state ? ' – ' : ''}${state} · ${p.genre || 'Artista'} · ${SHARE_BRAND}`;
+    const photo = p.photoUrl && String(p.photoUrl).trim() ? String(p.photoUrl).trim() : '';
+    const shareUrl = `${siteOrigin}/share/artist/${profileId}`;
+    const appUrl = `${siteOrigin}/artist/${profileId}`;
 
-  const ogImageTags = photo
-    ? `<meta property="og:image" content="${escHtml(photo)}">
+    const ogImageTags = photo
+      ? `<meta property="og:image" content="${escHtml(photo)}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="${escHtml(photo)}">`
-    : `<meta name="twitter:card" content="summary">`;
+      : `<meta name="twitter:card" content="summary">`;
 
-  const html = `<!DOCTYPE html>
+    const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${title} · Music Map</title>
+<title>${title} · ${SHARE_BRAND}</title>
 <meta name="description" content="${escHtml(desc)}">
-<meta property="og:title" content="${title} · Music Map">
+<meta property="og:title" content="${title} · ${SHARE_BRAND}">
 <meta property="og:description" content="${escHtml(desc)}">
 ${ogImageTags}
 <meta property="og:url" content="${escHtml(shareUrl)}">
@@ -175,9 +302,10 @@ ${ogImageTags}
 <p>Redirecionando para <a href="${escHtml(appUrl)}">${title}</a>…</p>
 </body>
 </html>`;
-  res.set('Content-Type', 'text/html; charset=utf-8');
-  res.status(200).send(html);
-});
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.status(200).send(html);
+  },
+);
 
 /** E-mail de boas-vindas (Resend). Config: firebase functions:config:set resend.key="re_xxx" */
 exports.onAuthUserCreate = functions.auth.user().onCreate(async (user) => {
