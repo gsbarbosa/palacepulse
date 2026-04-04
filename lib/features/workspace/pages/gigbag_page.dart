@@ -232,6 +232,17 @@ class _GigbagBody extends ConsumerWidget {
                                             color: AppColors.textSecondary,
                                           ),
                                     ),
+                                    if (c.linkedShowId != null && c.linkedShowId!.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: Text(
+                                          'Vinculada a um compromisso na agenda',
+                                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                                color: AppColors.primary,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                      ),
                                     if (c.isTemplate)
                                       Padding(
                                         padding: const EdgeInsets.only(top: 8),

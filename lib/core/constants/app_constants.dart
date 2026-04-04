@@ -5,6 +5,8 @@ class AppConstants {
   // Marca
   static const String appName = 'Music Map';
   static const String appTagline = 'O hub da sua carreira musical';
+  /// Monograma compacto na navegação (iniciais alinhadas a [appName])
+  static const String appMonogram = 'MM';
 
   /// Vagas para o pré-lançamento
   static const int earlyAccessLimit = 500;

@@ -10,6 +10,8 @@ class ArtistShow {
   final String notes;
   /// confirmed | pending | cancelled
   final String status;
+  /// Tipo de compromisso: show | rehearsal | recording
+  final String eventKind;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -23,9 +25,20 @@ class ArtistShow {
     required this.city,
     required this.notes,
     required this.status,
+    this.eventKind = eventKindShow,
     required this.createdAt,
     required this.updatedAt,
   });
+
+  static const eventKindShow = 'show';
+  static const eventKindRehearsal = 'rehearsal';
+  static const eventKindRecording = 'recording';
+
+  static const List<String> eventKindOrder = [
+    eventKindShow,
+    eventKindRehearsal,
+    eventKindRecording,
+  ];
 
   static const statusConfirmed = 'confirmed';
   static const statusPending = 'pending';
@@ -50,6 +63,7 @@ class ArtistShow {
       city: map['city']?.toString() ?? '',
       notes: map['notes']?.toString() ?? '',
       status: map['status']?.toString() ?? statusPending,
+      eventKind: map['eventKind']?.toString() ?? eventKindShow,
       createdAt: map['createdAt'] != null
           ? DateTime.parse(map['createdAt'] as String)
           : DateTime.now(),
@@ -68,6 +82,7 @@ class ArtistShow {
       'city': city,
       'notes': notes,
       'status': status,
+      'eventKind': eventKind,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };
@@ -81,6 +96,7 @@ class ArtistShow {
     String? city,
     String? notes,
     String? status,
+    String? eventKind,
     DateTime? updatedAt,
   }) {
     return ArtistShow(
@@ -93,6 +109,7 @@ class ArtistShow {
       city: city ?? this.city,
       notes: notes ?? this.notes,
       status: status ?? this.status,
+      eventKind: eventKind ?? this.eventKind,
       createdAt: createdAt,
       updatedAt: updatedAt ?? DateTime.now(),
     );

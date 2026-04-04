@@ -40,8 +40,8 @@ class _WorkspaceShellState extends ConsumerState<WorkspaceShell> {
   int _railIndex(String path) {
     if (path.startsWith('/dashboard')) return 0;
     if (path.startsWith('/shows/')) return 1;
-    if (path.startsWith('/tasks/')) return 2;
-    if (path.startsWith('/gigbag/')) return 3;
+    if (path.startsWith('/gigbag/')) return 2;
+    if (path.startsWith('/tasks/')) return 3;
     if (path.startsWith('/releases/')) return 4;
     if (path == '/perfil' || path.startsWith('/edit-profile')) return 5;
     return 0;
@@ -56,10 +56,10 @@ class _WorkspaceShellState extends ConsumerState<WorkspaceShell> {
         context.go('/shows/$profileId');
         break;
       case 2:
-        context.go('/tasks/$profileId');
+        context.go('/gigbag/$profileId');
         break;
       case 3:
-        context.go('/gigbag/$profileId');
+        context.go('/tasks/$profileId');
         break;
       case 4:
         context.go('/releases/$profileId');
@@ -136,10 +136,10 @@ class _WorkspaceShellState extends ConsumerState<WorkspaceShell> {
                           final loc = GoRouterState.of(context).matchedLocation;
                           if (loc.startsWith('/shows/')) {
                             context.go('/shows/$id');
-                          } else if (loc.startsWith('/tasks/')) {
-                            context.go('/tasks/$id');
                           } else if (loc.startsWith('/gigbag/')) {
                             context.go('/gigbag/$id');
+                          } else if (loc.startsWith('/tasks/')) {
+                            context.go('/tasks/$id');
                           } else if (loc.startsWith('/releases/')) {
                             context.go('/releases/$id');
                           }
@@ -186,8 +186,8 @@ class _WorkspaceRail extends StatelessWidget {
   static const _destinations = [
     _RailItem(Icons.explore_rounded, 'Central'),
     _RailItem(Icons.event_rounded, 'Shows'),
-    _RailItem(Icons.task_alt_rounded, 'Tarefas'),
     _RailItem(Icons.checklist_rounded, 'GigBag'),
+    _RailItem(Icons.task_alt_rounded, 'Tarefas'),
     _RailItem(Icons.album_rounded, 'Lançamentos'),
     _RailItem(Icons.person_rounded, 'Meu espaço'),
   ];
@@ -208,7 +208,7 @@ class _WorkspaceRail extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
             child: Text(
-              'MM',
+              AppConstants.appMonogram,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w900,
                     color: AppColors.primary,
@@ -475,14 +475,14 @@ class _WorkspaceBottomNav extends StatelessWidget {
           label: 'Shows',
         ),
         NavigationDestination(
-          icon: Icon(Icons.task_alt_outlined),
-          selectedIcon: Icon(Icons.task_alt_rounded),
-          label: 'Tarefas',
-        ),
-        NavigationDestination(
           icon: Icon(Icons.checklist_outlined),
           selectedIcon: Icon(Icons.checklist_rounded),
           label: 'GigBag',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.task_alt_outlined),
+          selectedIcon: Icon(Icons.task_alt_rounded),
+          label: 'Tarefas',
         ),
         NavigationDestination(
           icon: Icon(Icons.album_outlined),

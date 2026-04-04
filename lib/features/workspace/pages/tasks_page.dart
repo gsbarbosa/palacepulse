@@ -11,8 +11,8 @@ import '../../../shared/models/user_profile.dart';
 import '../../../shared/widgets/page_container.dart';
 import '../../../shared/widgets/pp_card.dart';
 import '../../../shared/widgets/pp_error_state.dart';
-import '../../../shared/widgets/pp_input.dart';
 import '../../../shared/widgets/workspace_page_scaffold.dart';
+import '../widgets/operational_task_editor_dialog.dart';
 
 String _formatDate(DateTime d) =>
     '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
@@ -85,205 +85,15 @@ class _TasksScaffoldState extends ConsumerState<_TasksScaffold> {
     required List<MusicRelease> releases,
     required List<GigBagChecklist> gigbag,
   }) async {
-    final context = this.context;
-    final ref = this.ref;
-    final svc = ref.read(artistWorkspaceServiceProvider);
-    final titleCtrl = TextEditingController(text: existing?.title ?? '');
-    final descCtrl = TextEditingController(text: existing?.description ?? '');
-    final assigneeCtrl = TextEditingController(text: existing?.assignee ?? '');
-    var priority = existing?.priority ?? OperationalTask.priorityMedium;
-    var status = existing?.status ?? OperationalTask.statusOpen;
-    DateTime? due = existing?.dueDate;
-    String? linkedShow = existing?.linkedShowId;
-    String? linkedRelease = existing?.linkedReleaseId;
-    String? linkedChecklist = existing?.linkedChecklistId;
-
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSt) => AlertDialog(
-          title: Text(existing == null ? 'Nova tarefa' : 'Editar tarefa'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                PPInput(label: 'Título', controller: titleCtrl),
-                const SizedBox(height: 12),
-                PPInput(label: 'Descrição (opcional)', controller: descCtrl, maxLines: 3),
-                const SizedBox(height: 12),
-                PPInput(label: 'Responsável', controller: assigneeCtrl, hint: 'Nome ou função'),
-                const SizedBox(height: 12),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Prazo'),
-                  subtitle: Text(due != null ? _formatDate(due!) : 'Sem data limite'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (due != null)
-                        IconButton(
-                          icon: const Icon(Icons.clear_rounded),
-                          onPressed: () => setSt(() => due = null),
-                          tooltip: 'Remover prazo',
-                        ),
-                      IconButton(
-                        icon: const Icon(Icons.calendar_today_rounded),
-                        onPressed: () async {
-                          final picked = await showDatePicker(
-                            context: ctx,
-                            initialDate: due ?? DateTime.now(),
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime(2100),
-                          );
-                          if (picked != null) setSt(() => due = picked);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                DropdownButtonFormField<String>(
-                  value: priority,
-                  decoration: const InputDecoration(labelText: 'Prioridade'),
-                  items: OperationalTask.prioritiesOrdered
-                      .map(
-                        (p) => DropdownMenuItem(
-                          value: p,
-                          child: Text(switch (p) {
-                            OperationalTask.priorityHigh => 'Alta',
-                            OperationalTask.priorityLow => 'Baixa',
-                            _ => 'Média',
-                          }),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) => setSt(() => priority = v ?? priority),
-                ),
-                if (existing != null) ...[
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: status,
-                    decoration: const InputDecoration(labelText: 'Status'),
-                    items: const [
-                      DropdownMenuItem(value: OperationalTask.statusOpen, child: Text('Aberta')),
-                      DropdownMenuItem(value: OperationalTask.statusDone, child: Text('Concluída')),
-                    ],
-                    onChanged: (v) => setSt(() => status = v ?? status),
-                  ),
-                ],
-                const SizedBox(height: 16),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Vínculos opcionais',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String?>(
-                  value: linkedShow,
-                  decoration: const InputDecoration(labelText: 'Show'),
-                  items: [
-                    const DropdownMenuItem<String?>(value: null, child: Text('Nenhum')),
-                    ...shows.map(
-                      (s) => DropdownMenuItem<String?>(
-                        value: s.id,
-                        child: Text(s.title.isEmpty ? 'Show ${s.id}' : s.title),
-                      ),
-                    ),
-                  ],
-                  onChanged: (v) => setSt(() => linkedShow = v),
-                ),
-                DropdownButtonFormField<String?>(
-                  value: linkedRelease,
-                  decoration: const InputDecoration(labelText: 'Lançamento'),
-                  items: [
-                    const DropdownMenuItem<String?>(value: null, child: Text('Nenhum')),
-                    ...releases.map(
-                      (r) => DropdownMenuItem<String?>(
-                        value: r.id,
-                        child: Text(r.title.isEmpty ? 'Lançamento ${r.id}' : r.title),
-                      ),
-                    ),
-                  ],
-                  onChanged: (v) => setSt(() => linkedRelease = v),
-                ),
-                DropdownButtonFormField<String?>(
-                  value: linkedChecklist,
-                  decoration: const InputDecoration(labelText: 'Checklist GigBag'),
-                  items: [
-                    const DropdownMenuItem<String?>(value: null, child: Text('Nenhum')),
-                    ...gigbag.map(
-                      (c) => DropdownMenuItem<String?>(
-                        value: c.id,
-                        child: Text(c.title.isEmpty ? 'Lista ${c.id}' : c.title),
-                      ),
-                    ),
-                  ],
-                  onChanged: (v) => setSt(() => linkedChecklist = v),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Salvar'),
-            ),
-          ],
-        ),
-      ),
+    await showOperationalTaskEditor(
+      context,
+      ref,
+      profile: widget.profile,
+      existing: existing,
+      shows: shows,
+      releases: releases,
+      gigbag: gigbag,
     );
-
-    if (ok != true || !context.mounted) return;
-    if (titleCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Informe o título da tarefa')),
-      );
-      return;
-    }
-
-    final now = DateTime.now();
-    final isNew = existing == null;
-    final completedAt = status == OperationalTask.statusDone
-        ? (existing?.completedAt ?? now)
-        : null;
-
-    final task = OperationalTask(
-      id: existing?.id ?? '',
-      profileId: widget.profile.id,
-      title: titleCtrl.text.trim(),
-      description: descCtrl.text.trim(),
-      assignee: assigneeCtrl.text.trim(),
-      dueDate: due,
-      priority: priority,
-      status: status,
-      linkedShowId: linkedShow,
-      linkedReleaseId: linkedRelease,
-      linkedChecklistId: linkedChecklist,
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-      completedAt: status == OperationalTask.statusDone ? completedAt : null,
-    );
-
-    try {
-      await svc.saveOperationalTask(task);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(isNew ? 'Tarefa criada' : 'Tarefa atualizada')),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Não foi possível salvar a tarefa.${userFacingErrorSuffix(e)}',
-            ),
-          ),
-        );
-      }
-    }
   }
 
   List<OperationalTask> _filteredAndSorted(List<OperationalTask> tasks) {

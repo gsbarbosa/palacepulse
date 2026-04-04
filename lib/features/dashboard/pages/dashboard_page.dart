@@ -109,61 +109,60 @@ class DashboardPage extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: AppSpacing.lg),
-                        _QuickActions(profileId: profileId),
+                        Text(
+                          'Use o menu lateral (ou a barra inferior no celular) para alternar módulos. '
+                          'Abaixo, o resumo do projeto ativo e as ferramentas na ordem da sua jornada — '
+                          'sempre o mesmo projeto selecionado na barra superior.',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: AppColors.textSecondary,
+                                height: 1.45,
+                              ),
+                        ),
                         const SizedBox(height: AppSpacing.xl),
                         DashboardOperationPanel(profile: active),
                         const SizedBox(height: AppSpacing.xxl),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Sua operação no hub',
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.w800,
-                                    ),
+                        Text(
+                          'Ferramentas do projeto',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w800,
                               ),
-                            ),
-                          ],
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         Text(
-                          'Cada área abaixo usa o projeto ativo que você escolheu na barra superior. '
-                          'Assim você não mistura agenda de uma banda com lançamentos de outra.',
+                          'Da agenda à divulgação: cada etapa abre o módulo correspondente para o projeto em foco.',
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 color: AppColors.textSecondary,
                                 height: 1.45,
                               ),
                         ),
                         const SizedBox(height: AppSpacing.lg),
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            final w = constraints.maxWidth;
-                            final cross = w >= 720 ? 2 : 1;
-                            return GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: cross,
-                                mainAxisSpacing: AppSpacing.md,
-                                crossAxisSpacing: AppSpacing.md,
-                                mainAxisExtent: 200,
+                        _DashboardModuleGrid(
+                          profileId: profileId,
+                          modules: DashboardModuleConfig.enabledInJourneyOrder,
+                          cardExtent: 200,
+                        ),
+                        const SizedBox(height: AppSpacing.xxl),
+                        Text(
+                          'Roadmap do produto',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textSecondary,
                               ),
-                              itemCount: DashboardModuleConfig.all.length,
-                              itemBuilder: (context, i) {
-                                final m = DashboardModuleConfig.all[i];
-                                final enabled = m.status == DashboardModuleStatus.enabled;
-                                return FeatureHubCard(
-                                  title: m.title,
-                                  description: m.description,
-                                  icon: m.icon,
-                                  comingSoon: !enabled,
-                                  onTap: enabled
-                                      ? () => context.push('${m.routePattern}/$profileId')
-                                      : null,
-                                );
-                              },
-                            );
-                          },
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          'Recursos planejados — ainda não entram na operação do dia a dia. '
+                          'Quando estiverem prontos, aparecerão na seção de ferramentas acima.',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: AppColors.textSecondary,
+                                height: 1.45,
+                              ),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        _DashboardModuleGrid(
+                          profileId: profileId,
+                          modules: DashboardModuleConfig.roadmap,
+                          cardExtent: 200,
                         ),
                         const SizedBox(height: AppSpacing.xxl),
                       ],
@@ -194,6 +193,53 @@ class DashboardPage extends ConsumerWidget {
         const Scaffold(
           body: Center(child: CircularProgressIndicator()),
         );
+  }
+}
+
+class _DashboardModuleGrid extends StatelessWidget {
+  const _DashboardModuleGrid({
+    required this.profileId,
+    required this.modules,
+    required this.cardExtent,
+  });
+
+  final String profileId;
+  final List<DashboardModuleConfig> modules;
+  final double cardExtent;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final cross = w >= 720 ? 2 : 1;
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: cross,
+            mainAxisSpacing: AppSpacing.md,
+            crossAxisSpacing: AppSpacing.md,
+            mainAxisExtent: cardExtent,
+          ),
+          itemCount: modules.length,
+          itemBuilder: (context, i) {
+            final m = modules[i];
+            final enabled = m.status == DashboardModuleStatus.enabled;
+            return FeatureHubCard(
+              title: m.title,
+              description: m.description,
+              icon: m.icon,
+              comingSoon: !enabled,
+              journeyStep: m.journeyStep,
+              onTap: enabled
+                  ? () => context.push('${m.routePattern}/$profileId')
+                  : null,
+            );
+          },
+        );
+      },
+    );
   }
 }
 
@@ -256,99 +302,6 @@ class _HeroSection extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickActions extends StatelessWidget {
-  const _QuickActions({required this.profileId});
-
-  final String profileId;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = <({String label, IconData icon, VoidCallback onTap})>[
-      (
-        label: 'Shows',
-        icon: Icons.event_rounded,
-        onTap: () => context.push('/shows/$profileId'),
-      ),
-      (
-        label: 'Tarefas',
-        icon: Icons.task_alt_rounded,
-        onTap: () => context.push('/tasks/$profileId'),
-      ),
-      (
-        label: 'GigBag',
-        icon: Icons.checklist_rounded,
-        onTap: () => context.push('/gigbag/$profileId'),
-      ),
-      (
-        label: 'Lançamentos',
-        icon: Icons.album_rounded,
-        onTap: () => context.push('/releases/$profileId'),
-      ),
-      (
-        label: 'Meu espaço',
-        icon: Icons.person_rounded,
-        onTap: () => context.push('/perfil'),
-      ),
-    ];
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          for (final item in items) ...[
-            _ActionChip(
-              label: item.label,
-              icon: item.icon,
-              onTap: item.onTap,
-            ),
-            const SizedBox(width: AppSpacing.sm),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionChip extends StatelessWidget {
-  const _ActionChip({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surfaceSecondary,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 20, color: AppColors.primary),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ],
-          ),
         ),
       ),
     );

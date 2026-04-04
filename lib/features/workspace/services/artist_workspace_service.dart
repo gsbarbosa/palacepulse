@@ -60,6 +60,7 @@ class ArtistWorkspaceService {
       city: show.city,
       notes: show.notes,
       status: show.status,
+      eventKind: show.eventKind,
       createdAt: show.id.isEmpty ? DateTime.now() : show.createdAt,
       updatedAt: DateTime.now(),
     );
@@ -100,6 +101,7 @@ class ArtistWorkspaceService {
       title: c.title,
       type: c.type,
       isTemplate: c.isTemplate,
+      linkedShowId: c.linkedShowId,
       items: c.items,
       createdAt: c.id.isEmpty ? DateTime.now() : c.createdAt,
       updatedAt: DateTime.now(),
@@ -130,6 +132,37 @@ class ArtistWorkspaceService {
       'title': '${source.title} (cópia)',
       'type': source.type,
       'isTemplate': false,
+      'items': itemsMap,
+      'createdAt': now.toIso8601String(),
+      'updatedAt': now.toIso8601String(),
+    });
+    return newId;
+  }
+
+  /// Instância de checklist para um compromisso (itens desmarcados), a partir de um modelo ou de outra lista.
+  Future<String> duplicateChecklistForCommitment({
+    required GigBagChecklist source,
+    required String linkedShowId,
+    required String title,
+  }) async {
+    final dbRef = _gigbagRef(source.profileId);
+    final newId = dbRef.push().key!;
+    final now = DateTime.now();
+    final itemsMap = <String, dynamic>{};
+    for (var i = 0; i < source.items.length; i++) {
+      final it = source.items[i];
+      final itemId = dbRef.child(newId).child('items').push().key!;
+      itemsMap[itemId] = {
+        'description': it.description,
+        'checked': false,
+        'order': i,
+      };
+    }
+    await dbRef.child(newId).set({
+      'title': title,
+      'type': source.type,
+      'isTemplate': false,
+      'linkedShowId': linkedShowId,
       'items': itemsMap,
       'createdAt': now.toIso8601String(),
       'updatedAt': now.toIso8601String(),

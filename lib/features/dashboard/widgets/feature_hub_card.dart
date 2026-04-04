@@ -12,6 +12,8 @@ class FeatureHubCard extends StatelessWidget {
   final IconData icon;
   final bool comingSoon;
   final VoidCallback? onTap;
+  /// Etapa na jornada (1–4) nos módulos ativos da central
+  final int? journeyStep;
 
   const FeatureHubCard({
     super.key,
@@ -20,6 +22,7 @@ class FeatureHubCard extends StatelessWidget {
     required this.icon,
     this.comingSoon = false,
     this.onTap,
+    this.journeyStep,
   });
 
   void _onComingSoonTap(BuildContext context) {
@@ -52,6 +55,28 @@ class FeatureHubCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (journeyStep != null) ...[
+                    Container(
+                      width: 32,
+                      height: 32,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.primary.withValues(alpha: 0.14),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Text(
+                        '$journeyStep',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
+                            ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                  ],
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(

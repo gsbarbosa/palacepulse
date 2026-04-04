@@ -15,6 +15,8 @@ class DashboardModuleConfig {
   final DashboardModuleStatus status;
   /// Rota relativa com `:profileId` quando [status] == enabled (ex. `/shows/:profileId`)
   final String routePattern;
+  /// Ordem na jornada (1–4) só para módulos ativos; ajuda hierarquia visual na central
+  final int? journeyStep;
 
   const DashboardModuleConfig({
     required this.key,
@@ -23,10 +25,11 @@ class DashboardModuleConfig {
     required this.icon,
     required this.status,
     this.routePattern = '',
+    this.journeyStep,
   });
 
-  /// Módulos exibidos no painel, na ordem do produto
-  static const List<DashboardModuleConfig> all = [
+  /// Módulos já disponíveis, na ordem da jornada: agenda → preparação → lançamentos
+  static const List<DashboardModuleConfig> enabledInJourneyOrder = [
     DashboardModuleConfig(
       key: 'shows',
       title: 'Agendar shows',
@@ -35,15 +38,7 @@ class DashboardModuleConfig {
       icon: Icons.event_rounded,
       status: DashboardModuleStatus.enabled,
       routePattern: '/shows',
-    ),
-    DashboardModuleConfig(
-      key: 'tasks',
-      title: 'Tarefas',
-      description:
-          'Pendências com responsável, prazo e prioridade. Vincule a shows, lançamentos ou checklists e acompanhe o que venceu no painel.',
-      icon: Icons.task_alt_rounded,
-      status: DashboardModuleStatus.enabled,
-      routePattern: '/tasks',
+      journeyStep: 1,
     ),
     DashboardModuleConfig(
       key: 'gigbag',
@@ -53,6 +48,17 @@ class DashboardModuleConfig {
       icon: Icons.checklist_rounded,
       status: DashboardModuleStatus.enabled,
       routePattern: '/gigbag',
+      journeyStep: 2,
+    ),
+    DashboardModuleConfig(
+      key: 'tasks',
+      title: 'Tarefas',
+      description:
+          'Pendências com responsável, prazo e prioridade. Vincule a shows, lançamentos ou checklists e acompanhe o que venceu no painel.',
+      icon: Icons.task_alt_rounded,
+      status: DashboardModuleStatus.enabled,
+      routePattern: '/tasks',
+      journeyStep: 3,
     ),
     DashboardModuleConfig(
       key: 'releases',
@@ -62,7 +68,12 @@ class DashboardModuleConfig {
       icon: Icons.album_rounded,
       status: DashboardModuleStatus.enabled,
       routePattern: '/releases',
+      journeyStep: 4,
     ),
+  ];
+
+  /// Ideias e expansões futuras — separadas na UI dos módulos ativos
+  static const List<DashboardModuleConfig> roadmap = [
     DashboardModuleConfig(
       key: 'ai_mentor',
       title: 'Mentoria com IA',
@@ -88,4 +99,10 @@ class DashboardModuleConfig {
       status: DashboardModuleStatus.comingSoon,
     ),
   ];
+
+  /// Lista completa (jornada + roadmap), útil para contagens ou migrações
+  static List<DashboardModuleConfig> get all => [
+        ...enabledInJourneyOrder,
+        ...roadmap,
+      ];
 }

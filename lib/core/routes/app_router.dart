@@ -11,6 +11,7 @@ import '../../features/shell/workspace_shell.dart';
 import '../../features/workspace/pages/gigbag_checklist_page.dart';
 import '../../features/workspace/pages/gigbag_page.dart';
 import '../../features/workspace/pages/releases_page.dart';
+import '../../features/workspace/pages/commitment_detail_page.dart';
 import '../../features/workspace/pages/shows_page.dart';
 import '../../features/workspace/pages/tasks_page.dart';
 import '../../features/landing/pages/landing_page.dart';
@@ -136,6 +137,14 @@ GoRouter createAppRouter(Ref ref) {
           GoRoute(
             path: '/dashboard',
             builder: (_, __) => const DashboardPage(),
+          ),
+          GoRoute(
+            path: '/shows/:profileId/commitment/:showId',
+            builder: (context, state) {
+              final profileId = state.pathParameters['profileId'] ?? '';
+              final showId = state.pathParameters['showId'] ?? '';
+              return CommitmentDetailPage(profileId: profileId, showId: showId);
+            },
           ),
           GoRoute(
             path: '/shows/:profileId',
