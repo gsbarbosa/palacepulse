@@ -111,15 +111,6 @@ class DashboardOperationPanel extends ConsumerWidget {
     );
 
     final nonTemplates = gigbag.where((c) => !c.isTemplate).toList();
-    final activeChecklists =
-        nonTemplates.where((c) => c.items.any((i) => !i.checked)).length;
-    final pendingItems =
-        nonTemplates.fold<int>(0, (acc, c) => acc + c.items.where((i) => !i.checked).length);
-    final releasesWip = releases
-        .where((r) =>
-            r.status == MusicRelease.statusPlanning ||
-            r.status == MusicRelease.statusInProgress)
-        .length;
     final completeness = evaluateProfileCompleteness(profile);
 
     final completedShows =
@@ -153,60 +144,38 @@ class DashboardOperationPanel extends ConsumerWidget {
                 )
               : _upcomingCommitmentsCarousel(context, upcomingRows.take(8).toList()),
         ),
-        const SizedBox(height: 12),
-        _sectionCard(
-          context,
-          title: 'Pendências operacionais',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _statLine(context, 'Checklists com itens pendentes', '$activeChecklists'),
-              _statLine(context, 'Itens de checklist a marcar', '$pendingItems'),
-              _statLine(
-                context,
-                'Lançamentos em planejamento ou andamento',
-                '$releasesWip',
+        if (overdueOpen > 0) ...[
+          const SizedBox(height: 12),
+          Material(
+            color: AppColors.warning.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              onTap: () => context.push('/tasks/$profileId'),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: Row(
+                  children: [
+                    Icon(Icons.schedule_rounded, color: AppColors.warning, size: 22),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        overdueOpen == 1
+                            ? '1 tarefa passou do prazo — toque para resolver'
+                            : '$overdueOpen tarefas passaram do prazo — toque para ver',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              height: 1.35,
+                            ),
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
+                  ],
+                ),
               ),
-              if (overdueOpen > 0) ...[
-                const SizedBox(height: 8),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.warning.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.warning_amber_rounded, color: AppColors.warning),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          '$overdueOpen tarefa(s) com prazo vencido — abra Tarefas para resolver.',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: AppColors.textPrimary,
-                                height: 1.35,
-                              ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-              if (completeness.isIncomplete) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'Perfil ainda incompleto (${completeness.percent}%). Falta: ${completeness.hints.take(3).join(', ')}${completeness.hints.length > 3 ? '…' : ''}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
-                        height: 1.35,
-                      ),
-                ),
-              ],
-            ],
+            ),
           ),
-        ),
+        ],
         const SizedBox(height: 12),
         _sectionCard(
           context,
@@ -214,7 +183,6 @@ class DashboardOperationPanel extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _statLine(context, 'Nome do perfil', profile.artistName),
               _statLine(context, 'Completude do perfil', '${completeness.percent}%'),
               _statLine(context, 'Shows realizados (confirmados)', '$completedShows'),
               _statLine(context, 'Lançamentos cadastrados', '${releases.length}'),

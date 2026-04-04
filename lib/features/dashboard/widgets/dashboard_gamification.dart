@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/profile_completion.dart';
 import '../../../core/utils/share_url.dart';
+import '../../../shared/models/music_release.dart';
 import '../../../shared/models/user_profile.dart';
 import '../../../shared/widgets/pp_badge.dart';
 import '../../../shared/widgets/pp_card.dart';
@@ -56,6 +58,8 @@ class ProfileGamificationSection extends ConsumerWidget {
             ],
           ),
         ),
+        const SizedBox(height: 16),
+        _hubPistaCard(context, ref, profile),
         const SizedBox(height: 16),
         PPCard(
           child: Column(
@@ -252,4 +256,157 @@ class ProfileGamificationSection extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Missões da operação (GigBag, lançamentos, tarefas) — tom leve, integrado à gamificação.
+Widget _hubPistaCard(BuildContext context, WidgetRef ref, UserProfile profile) {
+  final id = profile.id;
+  final gigAsync = ref.watch(gigbagStreamProvider(id));
+  final relAsync = ref.watch(releasesStreamProvider(id));
+  final taskAsync = ref.watch(operationalTasksStreamProvider(id));
+
+  if (gigAsync.isLoading || relAsync.isLoading || taskAsync.isLoading) {
+    return const PPCard(
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Center(
+          child: SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      ),
+    );
+  }
+
+  final gigbag = gigAsync.value ?? [];
+  final releases = relAsync.value ?? [];
+  final tasks = taskAsync.value ?? [];
+  final now = DateTime.now();
+  final nonTemplates = gigbag.where((c) => !c.isTemplate).toList();
+  final pendingItems =
+      nonTemplates.fold<int>(0, (acc, c) => acc + c.items.where((i) => !i.checked).length);
+  final releasesWip = releases
+      .where((r) =>
+          r.status == MusicRelease.statusPlanning ||
+          r.status == MusicRelease.statusInProgress)
+      .length;
+  final overdue = tasks.where((t) => t.isOpen && t.isOverdueAt(now)).length;
+
+  final gigDone = pendingItems == 0;
+  final relDone = releasesWip == 0;
+  final taskDone = overdue == 0;
+
+  return PPCard(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Sua pista no hub',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Toque em cada linha para abrir o módulo.',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: 12),
+        _hubPistaRow(
+          context,
+          done: gigDone,
+          title: gigDone ? 'GigBag em dia' : 'GigBag com pendências',
+          subtitle: gigDone
+              ? 'Nada esperando check.'
+              : '$pendingItems item(ns) ainda sem marcar.',
+          onTap: () => context.push('/gigbag/$id'),
+        ),
+        _hubPistaRow(
+          context,
+          done: relDone,
+          title: relDone ? 'Lançamentos tranquilos' : 'Lançamentos no radar',
+          subtitle: relDone
+              ? 'Nada em planejamento ativo.'
+              : '$releasesWip lançamento(s) em andamento ou planejamento.',
+          onTap: () => context.push('/releases/$id'),
+        ),
+        _hubPistaRow(
+          context,
+          done: taskDone,
+          title: taskDone ? 'Tarefas no prazo' : 'Tarefas pedindo atenção',
+          subtitle: taskDone
+              ? 'Nenhuma tarefa aberta atrasada.'
+              : overdue == 1
+                  ? '1 tarefa passou do prazo.'
+                  : '$overdue tarefas passaram do prazo.',
+          onTap: () => context.push('/tasks/$id'),
+        ),
+        if (gigDone && relDone && taskDone) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Tudo certo por aqui — foca no show.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.success,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
+Widget _hubPistaRow(
+  BuildContext context, {
+  required bool done,
+  required String title,
+  required String subtitle,
+  required VoidCallback onTap,
+}) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 4),
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                done ? Icons.check_circle : Icons.circle_outlined,
+                size: 22,
+                color: done ? AppColors.success : AppColors.secondary,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondary,
+                            height: 1.3,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.textSecondary),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }

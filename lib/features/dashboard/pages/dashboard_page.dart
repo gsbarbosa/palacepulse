@@ -5,12 +5,12 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/dashboard_modules.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_gradients.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../shared/models/user_profile.dart';
 import '../../../shared/widgets/page_container.dart';
 import '../../../shared/widgets/pp_button.dart';
 import '../../../shared/widgets/pp_error_state.dart';
+import '../widgets/dashboard_hero_section.dart';
 import '../widgets/dashboard_operation_panel.dart';
 import '../widgets/feature_hub_card.dart';
 
@@ -99,7 +99,7 @@ class DashboardPage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _HeroSection(greetName: greetName, projectName: active.artistName),
+                DashboardHeroSection(greetName: greetName, profile: active),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
                   child: PageContainer(
@@ -211,67 +211,6 @@ class _DashboardModuleGrid extends StatelessWidget {
           },
         );
       },
-    );
-  }
-}
-
-class _HeroSection extends StatelessWidget {
-  const _HeroSection({
-    required this.greetName,
-    required this.projectName,
-  });
-
-  final String greetName;
-  final String projectName;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.xl,
-        AppSpacing.lg,
-        AppSpacing.xl,
-      ),
-      decoration: BoxDecoration(
-        gradient: AppGradients.subtleGlow,
-      ),
-      child: PageContainer(
-        maxWidth: AppSpacing.maxContent,
-        centered: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Olá, $greetName',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
-                  ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text.rich(
-              TextSpan(
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppColors.textSecondary,
-                      height: 1.45,
-                    ),
-                children: [
-                  const TextSpan(text: 'Você está em '),
-                  TextSpan(
-                    text: projectName,
-                    style: const TextStyle(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
