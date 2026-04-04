@@ -132,6 +132,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     );
   }
 
+  /// Origem do cadastro (`?ref=`) vinda da URL
+  String? _referralFromRoute() {
+    return GoRouterState.of(context).uri.queryParameters[AppConstants.referralQueryParam];
+  }
+
   String? _confirmPassword(String? value) {
     if (value != _passwordController.text) {
       return 'As senhas não coincidem';
@@ -181,6 +186,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           cred.user!.email ?? '',
           accountType: 'band',
           representationDeclarationAcceptedAt: DateTime.now().toIso8601String(),
+          referralSource: _referralFromRoute(),
         );
       }
       if (mounted) context.go('/complete-profile');
@@ -223,6 +229,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           cred.user!.uid,
           cred.user!.email ?? '',
           accountType: 'band',
+          referralSource: _referralFromRoute(),
           // Declaração será coletada no complete-profile
         );
       }
@@ -258,7 +265,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Pré-lançamento: seu cadastro reserva lugar na cena fundadora e no mapa.',
+                  'Pré-lançamento: seu cadastro reserva vaga no acesso antecipado ao hub.',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 32),

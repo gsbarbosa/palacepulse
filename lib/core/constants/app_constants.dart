@@ -4,7 +4,7 @@ class AppConstants {
 
   // Marca
   static const String appName = 'Music Map';
-  static const String appTagline = 'O mapa da cena musical';
+  static const String appTagline = 'O hub da sua carreira musical';
 
   /// Vagas para o pré-lançamento
   static const int earlyAccessLimit = 500;
@@ -14,10 +14,25 @@ class AppConstants {
 
   // Firebase paths
   static const String totalProfilesPath = 'stats/totalProfiles';
+  /// Contador de aberturas da página pública (gravado por Cloud Function)
+  static const String profileViewsPath = 'stats/profile_views';
+
+  /// Query `?ref=` na landing/cadastro para rastrear origem (ex.: landing, parceiro_x)
+  static const String referralQueryParam = 'ref';
+  static const String referralLandingValue = 'landing';
   static const String usersPath = 'users';
   static const String profilesPath = 'profiles';
   static const String profilesByOwnerPath = 'profiles_by_owner';
   static const String adminUsersPath = 'admin_users';
+
+  /// Agenda de shows por perfil: `shows/{profileId}/{showId}`
+  static const String showsPath = 'shows';
+  /// GigBag por perfil: `gigbag/{profileId}/{checklistId}`
+  static const String gigbagPath = 'gigbag';
+  /// Lançamentos por perfil: `releases/{profileId}/{releaseId}`
+  static const String releasesPath = 'releases';
+  /// Tarefas operacionais por perfil: `operational_tasks/{profileId}/{taskId}`
+  static const String operationalTasksPath = 'operational_tasks';
 
   /// Emails com acesso ao painel admin (export CSV). Opcional: use também `admin_users/{uid}` no Realtime Database.
   static const List<String> adminEmails = [];

@@ -4,6 +4,12 @@
       "totalProfiles": {
         ".read": true,
         ".write": "auth != null"
+      },
+      "profile_views": {
+        "$profileId": {
+          ".read": "auth != null && (root.child('profiles').child($profileId).child('ownerUserId').val() == auth.uid || root.child('admin_users').child(auth.uid).val() == true)",
+          ".write": false
+        }
       }
     },
     "admin_users": {
@@ -14,11 +20,12 @@
     },
     "users": {
       "$uid": {
-        ".read": "auth != null && auth.uid == $uid",
+        ".read": "auth != null && (auth.uid == $uid || root.child('admin_users').child(auth.uid).val() == true)",
         ".write": "auth != null && auth.uid == $uid"
       }
     },
     "profiles": {
+      ".read": "auth != null",
       "$profileId": {
         ".read": "auth != null || (data.child('status').val() == 'active' && data.child('publicProfile').val() != false)",
         ".write": "auth != null && ((!data.exists() && newData.child('ownerUserId').val() == auth.uid) || (data.exists() && data.child('ownerUserId').val() == auth.uid))"
@@ -27,7 +34,47 @@
     "profiles_by_owner": {
       "$uid": {
         ".read": "auth != null && auth.uid == $uid",
-        ".write": "auth != null && auth.uid == $uid"
+        ".write": "auth != null && auth.uid == $uid",
+        "$profileId": {
+          ".read": "auth != null && auth.uid == $uid",
+          ".write": "auth != null && auth.uid == $uid"
+        }
+      }
+    },
+    "shows": {
+      "$profileId": {
+        ".read": "auth != null && (root.child('profiles').child($profileId).child('ownerUserId').val() == auth.uid || root.child('profiles_by_owner').child(auth.uid).child($profileId).val() == true)",
+        "$showId": {
+          ".read": "auth != null && (root.child('profiles').child($profileId).child('ownerUserId').val() == auth.uid || root.child('profiles_by_owner').child(auth.uid).child($profileId).val() == true)",
+          ".write": "auth != null && (root.child('profiles').child($profileId).child('ownerUserId').val() == auth.uid || root.child('profiles_by_owner').child(auth.uid).child($profileId).val() == true)"
+        }
+      }
+    },
+    "gigbag": {
+      "$profileId": {
+        ".read": "auth != null && (root.child('profiles').child($profileId).child('ownerUserId').val() == auth.uid || root.child('profiles_by_owner').child(auth.uid).child($profileId).val() == true)",
+        "$checklistId": {
+          ".read": "auth != null && (root.child('profiles').child($profileId).child('ownerUserId').val() == auth.uid || root.child('profiles_by_owner').child(auth.uid).child($profileId).val() == true)",
+          ".write": "auth != null && (root.child('profiles').child($profileId).child('ownerUserId').val() == auth.uid || root.child('profiles_by_owner').child(auth.uid).child($profileId).val() == true)"
+        }
+      }
+    },
+    "releases": {
+      "$profileId": {
+        ".read": "auth != null && (root.child('profiles').child($profileId).child('ownerUserId').val() == auth.uid || root.child('profiles_by_owner').child(auth.uid).child($profileId).val() == true)",
+        "$releaseId": {
+          ".read": "auth != null && (root.child('profiles').child($profileId).child('ownerUserId').val() == auth.uid || root.child('profiles_by_owner').child(auth.uid).child($profileId).val() == true)",
+          ".write": "auth != null && (root.child('profiles').child($profileId).child('ownerUserId').val() == auth.uid || root.child('profiles_by_owner').child(auth.uid).child($profileId).val() == true)"
+        }
+      }
+    },
+    "operational_tasks": {
+      "$profileId": {
+        ".read": "auth != null && (root.child('profiles').child($profileId).child('ownerUserId').val() == auth.uid || root.child('profiles_by_owner').child(auth.uid).child($profileId).val() == true)",
+        "$taskId": {
+          ".read": "auth != null && (root.child('profiles').child($profileId).child('ownerUserId').val() == auth.uid || root.child('profiles_by_owner').child(auth.uid).child($profileId).val() == true)",
+          ".write": "auth != null && (root.child('profiles').child($profileId).child('ownerUserId').val() == auth.uid || root.child('profiles_by_owner').child(auth.uid).child($profileId).val() == true)"
+        }
       }
     }
   }

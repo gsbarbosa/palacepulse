@@ -1,4 +1,5 @@
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -74,10 +75,33 @@ class _ProfilePhotoSectionState extends State<ProfilePhotoSection> {
           ),
         );
       }
+    } on FirebaseException catch (e) {
+      if (mounted) {
+        final hint = kIsWeb
+            ? ' No Flutter Web é comum faltar CORS no bucket: na raiz do projeto rode '
+                '`gsutil cors set storage-cors.json gs://SEU_BUCKET` (veja Console > Storage > bucket).'
+            : '';
+        final snackDuration =
+            kIsWeb ? const Duration(seconds: 10) : const Duration(seconds: 4);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao enviar foto (${e.code}): ${e.message}$hint'),
+            duration: snackDuration,
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
+        final hint = kIsWeb
+            ? ' Se aparecer falha de rede/CORS, aplique `storage-cors.json` no bucket com gsutil.'
+            : '';
+        final snackDuration =
+            kIsWeb ? const Duration(seconds: 8) : const Duration(seconds: 4);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao enviar foto: $e')),
+          SnackBar(
+            content: Text('Erro ao enviar foto: $e$hint'),
+            duration: snackDuration,
+          ),
         );
       }
     } finally {

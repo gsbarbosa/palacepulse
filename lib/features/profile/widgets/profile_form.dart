@@ -133,11 +133,21 @@ class _ProfileFormState extends State<ProfileForm> {
 
   void _submit() {
     if (!(_formKey.currentState?.validate() ?? false)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Verifique os campos obrigatórios (marcados com *).')),
+        );
+      }
       _scrollToTop();
       return;
     }
     final isNewProfile = widget.initialProfile == null;
     if (isNewProfile && !_declarationAccepted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Aceite a declaração no final do formulário para continuar.')),
+        );
+      }
       _scrollToTop();
       return;
     }
@@ -147,6 +157,11 @@ class _ProfileFormState extends State<ProfileForm> {
         : (_selectedCity ?? '');
     final state = _selectedState ?? _stateController.text.trim();
     if (city.isEmpty || state.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Selecione estado e cidade.')),
+        );
+      }
       _scrollToTop();
       return;
     }

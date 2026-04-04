@@ -1,10 +1,14 @@
-/// URL compartilhável da página pública do artista (web).
-/// Com `usePathUrlStrategy`, use `origin + /artist/:id`. Caso contrário, ajuste o deploy ou o hash conforme o host.
+/// Base do site (sempre path real, sem `#`), para links que o Hosting precisa resolver.
+String _siteOrigin() => Uri.base.origin;
+
+/// URL da SPA (Flutter) — abre o app em `/artist/:id`.
+/// Usa só `origin` + path para funcionar com Hosting (`**` → index.html) e path URL strategy.
 String artistPublicPageUrl(String profileId) {
-  final base = Uri.base;
-  final path = '/artist/$profileId';
-  if (base.fragment.isNotEmpty) {
-    return '${base.origin}${base.path}#$path';
-  }
-  return '${base.origin}$path';
+  return '${_siteOrigin()}/artist/$profileId';
+}
+
+/// URL para WhatsApp/Instagram: **tem** de ser path HTTP (`/share/artist/...`).
+/// Nunca use fragmento `#/share/...` — o servidor não recebe o que vem depois de `#`.
+String artistSocialShareUrl(String profileId) {
+  return '${_siteOrigin()}/share/artist/$profileId';
 }

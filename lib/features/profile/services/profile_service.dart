@@ -1,13 +1,65 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/firebase/app_firebase_database.dart';
+import '../../../../core/firebase/rtdb_rest_client.dart';
 import '../../../../core/utils/profile_lookup.dart';
 import '../../../../shared/models/user_profile.dart';
 
 /// Serviço de perfil com Firebase Realtime Database
 /// Um usuário pode ter vários perfis (várias bandas/artistas)
 class ProfileService {
-  final DatabaseReference _db = FirebaseDatabase.instance.ref();
+  final DatabaseReference _db = appFirebaseDatabase.ref();
+
+  /// No Web o [FirebaseException.code] costuma ser `firebase_database/permission-denied`,
+  /// não só `permission-denied` — comparação estrita impedia o fallback REST.
+  static bool _isRtdbPermissionDenied(Object e) {
+    if (e is FirebaseException) {
+      return e.code.toLowerCase().contains('permission-denied');
+    }
+    return e.toString().toLowerCase().contains('permission-denied');
+  }
+
+  /// Garante sessão válida e token JWT atualizado (evita permission-denied no RTDB Web).
+  Future<void> _refreshAuthTokenForRtdb() async {
+    final u = FirebaseAuth.instance.currentUser;
+    if (u == null) {
+      throw StateError('not_authenticated');
+    }
+    await u.getIdToken(true);
+    final db = appFirebaseDatabase;
+    try {
+      db.goOffline();
+      db.goOnline();
+    } catch (_) {
+      // Algumas plataformas podem não suportar; token já foi renovado
+    }
+  }
+
+  /// Mobile/desktop: SDK + retry + REST. No Web, [saveProfile] usa REST direto.
+  Future<void> _setProfileOrRetry(String profileId, Map<String, dynamic> profileData) async {
+    final ref = _db.child(AppConstants.profilesPath).child(profileId);
+    try {
+      await ref.set(profileData);
+      return;
+    } catch (e) {
+      if (!_isRtdbPermissionDenied(e)) rethrow;
+    }
+    await _refreshAuthTokenForRtdb();
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    try {
+      await ref.set(profileData);
+      return;
+    } catch (e) {
+      if (!_isRtdbPermissionDenied(e)) rethrow;
+    }
+    await RtdbRestClient.putJson(
+      '${AppConstants.profilesPath}/$profileId',
+      profileData,
+    );
+  }
 
   /// Verifica se o limite de vagas do pré-lançamento foi atingido
   Future<bool> isAtEarlyAccessLimit() async {
@@ -19,10 +71,19 @@ class ProfileService {
   /// Busca perfil duplicado por nome + Instagram (normalizados)
   /// Retorna o perfil existente se encontrar, null caso contrário
   Future<UserProfile?> findDuplicateProfile(String artistName, String instagram) async {
+    await _refreshAuthTokenForRtdb();
     final key = normalizeProfileLookupKey(artistName, instagram);
-    final snapshot = await _db.child(AppConstants.profilesPath).get();
-    if (!snapshot.exists || snapshot.value == null) return null;
-    final data = snapshot.value as Map<dynamic, dynamic>;
+    final Map<dynamic, dynamic> data;
+    if (kIsWeb) {
+      final raw = await RtdbRestClient.getJson(AppConstants.profilesPath);
+      if (raw == null) return null;
+      if (raw is! Map) return null;
+      data = raw;
+    } else {
+      final snapshot = await _db.child(AppConstants.profilesPath).get();
+      if (!snapshot.exists || snapshot.value == null) return null;
+      data = snapshot.value as Map<dynamic, dynamic>;
+    }
     for (final entry in data.entries) {
       final map = Map<String, dynamic>.from(entry.value as Map);
       final existingKey = normalizeProfileLookupKey(
@@ -40,6 +101,12 @@ class ProfileService {
   /// Se profile.id estiver vazio, cria novo
   /// Lança StateError se limite de vagas atingido (apenas para novo perfil)
   Future<String> saveProfile(UserProfile profile) async {
+    await _refreshAuthTokenForRtdb();
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+    if (profile.ownerUserId != uid) {
+      throw StateError('owner_mismatch');
+    }
+
     final isNew = profile.id.isEmpty;
     if (isNew) {
       final atLimit = await isAtEarlyAccessLimit();
@@ -50,18 +117,77 @@ class ProfileService {
     final profileId = isNew ? _db.child(AppConstants.profilesPath).push().key! : profile.id;
 
     final profileData = profile.toMap();
-    await _db.child(AppConstants.profilesPath).child(profileId).set(profileData);
 
-    if (isNew) {
-      await _db
-          .child(AppConstants.profilesByOwnerPath)
-          .child(profile.ownerUserId)
-          .child(profileId)
-          .set(true);
-      try {
-        await _db.child(AppConstants.totalProfilesPath).set(ServerValue.increment(1));
-      } catch (_) {
-        // Ignora falha no contador (ex: regras não deployadas); perfil é salvo
+    if (kIsWeb) {
+      await RtdbRestClient.putJson(
+        '${AppConstants.profilesPath}/$profileId',
+        profileData,
+      );
+      if (isNew) {
+        try {
+          await RtdbRestClient.putJson(
+            '${AppConstants.profilesByOwnerPath}/${profile.ownerUserId}/$profileId',
+            true,
+          );
+        } catch (e) {
+          try {
+            await RtdbRestClient.delete('${AppConstants.profilesPath}/$profileId');
+          } catch (_) {}
+          rethrow;
+        }
+        try {
+          await RtdbRestClient.incrementAtPath(AppConstants.totalProfilesPath, 1);
+        } catch (_) {}
+      }
+    } else {
+      await _setProfileOrRetry(profileId, profileData);
+      if (isNew) {
+        try {
+          await _db
+              .child(AppConstants.profilesByOwnerPath)
+              .child(profile.ownerUserId)
+              .child(profileId)
+              .set(true);
+        } on FirebaseException catch (e) {
+          if (_isRtdbPermissionDenied(e)) {
+            try {
+              await RtdbRestClient.putJson(
+                '${AppConstants.profilesByOwnerPath}/${profile.ownerUserId}/$profileId',
+                true,
+              );
+            } catch (_) {
+              try {
+                await _db.child(AppConstants.profilesPath).child(profileId).remove();
+              } catch (_) {
+                try {
+                  await RtdbRestClient.delete('${AppConstants.profilesPath}/$profileId');
+                } catch (_) {}
+              }
+              rethrow;
+            }
+          } else {
+            try {
+              await _db.child(AppConstants.profilesPath).child(profileId).remove();
+            } catch (_) {
+              try {
+                await RtdbRestClient.delete('${AppConstants.profilesPath}/$profileId');
+              } catch (_) {}
+            }
+            rethrow;
+          }
+        } catch (e) {
+          try {
+            await _db.child(AppConstants.profilesPath).child(profileId).remove();
+          } catch (_) {
+            try {
+              await RtdbRestClient.delete('${AppConstants.profilesPath}/$profileId');
+            } catch (_) {}
+          }
+          rethrow;
+        }
+        try {
+          await _db.child(AppConstants.totalProfilesPath).set(ServerValue.increment(1));
+        } catch (_) {}
       }
     }
 
@@ -165,11 +291,63 @@ class ProfileService {
   }
 
   /// Atualiza flag profileCompleted no nó users
+  /// Se o nó não existir (ex.: conta Google sem `createUserRecord`), cria registro mínimo.
   Future<void> markProfileCompleted(String userId) async {
-    await _db.child(AppConstants.usersPath).child(userId).update({
-      'profileCompleted': true,
-      'updatedAt': DateTime.now().toIso8601String(),
-    });
+    await _refreshAuthTokenForRtdb();
+    if (FirebaseAuth.instance.currentUser!.uid != userId) {
+      throw StateError('owner_mismatch');
+    }
+    final now = DateTime.now().toIso8601String();
+    if (kIsWeb) {
+      final existing = await RtdbRestClient.getJson('${AppConstants.usersPath}/$userId');
+      if (existing is Map && existing.isNotEmpty) {
+        await RtdbRestClient.patchJson('${AppConstants.usersPath}/$userId', {
+          'profileCompleted': true,
+          'updatedAt': now,
+        });
+      } else {
+        final email = FirebaseAuth.instance.currentUser?.email ?? '';
+        await RtdbRestClient.putJson('${AppConstants.usersPath}/$userId', {
+          'email': email,
+          'accountType': 'person',
+          'createdAt': now,
+          'updatedAt': now,
+          'profileCompleted': true,
+        });
+      }
+      return;
+    }
+    final ref = _db.child(AppConstants.usersPath).child(userId);
+    final snap = await ref.get();
+    if (snap.exists && snap.value != null) {
+      try {
+        await ref.update({
+          'profileCompleted': true,
+          'updatedAt': now,
+        });
+      } catch (e) {
+        if (!_isRtdbPermissionDenied(e)) rethrow;
+        await RtdbRestClient.patchJson('${AppConstants.usersPath}/$userId', {
+          'profileCompleted': true,
+          'updatedAt': now,
+        });
+      }
+    } else {
+      final email = FirebaseAuth.instance.currentUser?.email ?? '';
+      final payload = {
+        'email': email,
+        'accountType': 'person',
+        'createdAt': now,
+        'updatedAt': now,
+        'profileCompleted': true,
+      };
+      try {
+        await ref.set(payload);
+      } catch (e) {
+        if (!_isRtdbPermissionDenied(e)) rethrow;
+        await RtdbRestClient.putJson('${AppConstants.usersPath}/$userId', payload);
+      }
+    }
   }
 
   /// Retorna o total de bandas/artistas cadastradas (apenas dados reais do banco)
@@ -182,7 +360,7 @@ class ProfileService {
     return 0;
   }
 
-  /// Retorna contagem de bandas/artistas por estado (para o mapa)
+  /// Retorna contagem de bandas/artistas por estado (visualização no Brasil)
   Future<Map<String, int>> getLocationCountsByState() async {
     final snapshot = await _db.child(AppConstants.profilesPath).get();
     if (!snapshot.exists || snapshot.value == null) return {};
@@ -207,6 +385,7 @@ class ProfileService {
     String email, {
     String accountType = 'person',
     String? representationDeclarationAcceptedAt,
+    String? referralSource,
   }) async {
     final ref = _db.child(AppConstants.usersPath).child(userId);
     final now = DateTime.now().toIso8601String();
@@ -220,7 +399,38 @@ class ProfileService {
     if (representationDeclarationAcceptedAt != null) {
       data['representationDeclarationAcceptedAt'] = representationDeclarationAcceptedAt;
     }
+    if (referralSource != null && referralSource.trim().isNotEmpty) {
+      data['referralSource'] = referralSource.trim();
+    }
     await ref.set(data);
+  }
+
+  /// Origem do cadastro (`?ref=`), para o admin
+  Future<String?> getUserReferralSource(String userId) async {
+    final snapshot =
+        await _db.child(AppConstants.usersPath).child(userId).child('referralSource').get();
+    if (!snapshot.exists || snapshot.value == null) return null;
+    return snapshot.value.toString();
+  }
+
+  /// Visualizações do link público (incrementado por Cloud Function)
+  Stream<int> profileViewCountStream(String profileId) {
+    return _db
+        .child(AppConstants.profileViewsPath)
+        .child(profileId)
+        .onValue
+        .map((event) {
+      final v = event.snapshot.value;
+      if (v is num) return v.toInt();
+      return 0;
+    });
+  }
+
+  Future<int> getProfileViewCount(String profileId) async {
+    final snapshot = await _db.child(AppConstants.profileViewsPath).child(profileId).get();
+    final v = snapshot.value;
+    if (v is num) return v.toInt();
+    return 0;
   }
 
   /// Retorna o tipo de conta do usuário
@@ -287,6 +497,9 @@ class ProfileService {
     final profiles = await getProfilesForUser(userId);
     for (final p in profiles) {
       await _db.child(AppConstants.profilesPath).child(p.id).remove();
+      try {
+        await _db.child(AppConstants.profileViewsPath).child(p.id).remove();
+      } catch (_) {}
       try {
         await _db.child(AppConstants.totalProfilesPath).set(ServerValue.increment(-1));
       } catch (_) {}

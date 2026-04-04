@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/providers/providers.dart';
@@ -24,7 +25,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _passwordController = TextEditingController();
 
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
   String? _errorMessage;
+
+  String? _referralFromRoute() {
+    return GoRouterState.of(context).uri.queryParameters[AppConstants.referralQueryParam];
+  }
 
   @override
   void dispose() {
@@ -69,6 +75,55 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
   }
 
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _errorMessage = null;
+      _isGoogleLoading = true;
+    });
+
+    try {
+      final auth = ref.read(authServiceProvider);
+      final profileService = ref.read(profileServiceProvider);
+      final cred = await auth.signInWithGoogle();
+      if (cred == null) {
+        setState(() => _isGoogleLoading = false);
+        return;
+      }
+      if (cred.additionalUserInfo?.isNewUser == true) {
+        final atLimit = await profileService.isAtEarlyAccessLimit();
+        if (atLimit) {
+          await auth.signOut();
+          setState(() {
+            _errorMessage = 'As vagas do pré-lançamento foram esgotadas. Em breve teremos novidades!';
+            _isGoogleLoading = false;
+          });
+          return;
+        }
+        if (cred.user != null) {
+          await profileService.createUserRecord(
+            cred.user!.uid,
+            cred.user!.email ?? '',
+            accountType: 'band',
+            referralSource: _referralFromRoute(),
+          );
+        }
+      }
+      if (mounted) {
+        setState(() => _isGoogleLoading = false);
+        context.go('/dashboard');
+      }
+    } on Exception catch (e) {
+      final auth = ref.read(authServiceProvider);
+      final code = e.toString().contains(']')
+          ? e.toString().split(']').last.trim().split('.').first
+          : '';
+      setState(() {
+        _errorMessage = auth.getAuthErrorMessage(code);
+        _isGoogleLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -88,7 +143,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Use seu email e senha para acessar sua conta.',
+                  'Entre com email e senha ou com sua conta Google.',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 32),
@@ -146,9 +201,29 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       const SizedBox(height: 32),
                       PPButton(
                         label: 'Entrar',
-                        onPressed: _submit,
+                        onPressed: _isGoogleLoading ? null : _submit,
                         isLoading: _isLoading,
                         fullWidth: true,
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(child: Divider(color: AppColors.border)),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text('ou', style: Theme.of(context).textTheme.bodySmall),
+                          ),
+                          Expanded(child: Divider(color: AppColors.border)),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      PPButton(
+                        label: 'Continuar com Google',
+                        icon: Icons.g_mobiledata_rounded,
+                        onPressed: _isLoading ? null : _signInWithGoogle,
+                        isLoading: _isGoogleLoading,
+                        fullWidth: true,
+                        variant: PPButtonVariant.outline,
                       ),
                     ],
                   ),

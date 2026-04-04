@@ -5,6 +5,9 @@
   "storage": {
     "rules": "firebase.storage.rules"
   },
+  "functions": {
+    "source": "functions"
+  },
   "hosting": {
     "public": "build/web",
     "ignore": [
@@ -21,6 +24,17 @@
             "value": "same-origin-allow-popups"
           }
         ]
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "/share/artist/**",
+        "function": "artistShare",
+        "region": "us-central1"
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
       }
     ]
   }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/profile_completion.dart';
 import '../../../core/utils/share_url.dart';
@@ -9,14 +11,15 @@ import '../../../shared/widgets/pp_badge.dart';
 import '../../../shared/widgets/pp_card.dart';
 
 /// Barra de progresso, checklist e mini missões
-class ProfileGamificationSection extends StatelessWidget {
+class ProfileGamificationSection extends ConsumerWidget {
   final UserProfile profile;
 
   const ProfileGamificationSection({super.key, required this.profile});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = ProfileCompletion.fromProfile(profile);
+    final viewsAsync = ref.watch(profileViewCountProvider(profile.id));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -118,31 +121,63 @@ class ProfileGamificationSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Seu link público',
+                'Visualizações do link público',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              viewsAsync.when(
+                data: (n) => Text(
+                  '$n visualizações (aberturas da página pública)',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                loading: () => const LinearProgressIndicator(minHeight: 4),
+                error: (_, __) => Text(
+                  '—',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        PPCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Link para redes (preview no WhatsApp/Instagram)',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
               Text(
-                'Compartilhe no Instagram, WhatsApp ou Linktree.',
+                'Use o link abaixo ao divulgar; ele inclui nome, descrição e foto quando houver.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 12),
               SelectableText(
-                artistPublicPageUrl(profile.id),
+                artistSocialShareUrl(profile.id),
                 style: const TextStyle(color: AppColors.primary, fontSize: 13),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Abrir perfil no app: ${artistPublicPageUrl(profile.id)}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: artistPublicPageUrl(profile.id)));
+                  await Clipboard.setData(ClipboardData(text: artistSocialShareUrl(profile.id)));
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Link copiado')),
+                      const SnackBar(content: Text('Link para redes copiado')),
                     );
                   }
                 },
-                icon: const Icon(Icons.link, size: 18),
-                label: const Text('Copiar link'),
+                icon: const Icon(Icons.share_rounded, size: 18),
+                label: const Text('Copiar link para redes'),
               ),
             ],
           ),

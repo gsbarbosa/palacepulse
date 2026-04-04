@@ -10,6 +10,7 @@ import '../../../shared/models/user_profile.dart';
 import '../../../shared/widgets/page_container.dart';
 import '../../../shared/widgets/pp_button.dart';
 import '../../../shared/widgets/pp_dropdown.dart';
+import '../../../shared/widgets/pp_error_state.dart';
 import '../../../shared/widgets/pp_logo.dart';
 
 final adminProfilesProvider = FutureProvider.autoDispose<List<UserProfile>>((ref) async {
@@ -40,10 +41,21 @@ class _AdminPageState extends ConsumerState<AdminPage> {
     }).toList();
   }
 
-  String _csv(List<UserProfile> rows) {
-    final header = ['id', 'artistName', 'city', 'state', 'genre', 'instagram', 'contact'];
+  Future<String> _csv(List<UserProfile> rows) async {
+    final svc = ref.read(profileServiceProvider);
+    final header = [
+      'id',
+      'artistName',
+      'city',
+      'state',
+      'genre',
+      'instagram',
+      'contact',
+      'referral',
+    ];
     final lines = <String>[header.map(_escapeCsv).join(',')];
     for (final p in rows) {
+      final referral = await svc.getUserReferralSource(p.ownerUserId);
       lines.add([
         p.id,
         p.artistName,
@@ -52,6 +64,7 @@ class _AdminPageState extends ConsumerState<AdminPage> {
         p.genre,
         p.instagram,
         p.contact,
+        referral ?? '',
       ].map(_escapeCsv).join(','));
     }
     return lines.join('\n');
@@ -63,7 +76,7 @@ class _AdminPageState extends ConsumerState<AdminPage> {
   }
 
   Future<void> _export(List<UserProfile> list) async {
-    final csv = _csv(list);
+    final csv = await _csv(list);
     await Clipboard.setData(ClipboardData(text: csv));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -189,7 +202,14 @@ class _AdminPageState extends ConsumerState<AdminPage> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Erro: $e')),
+        error: (e, _) => Center(
+          child: PPErrorState(
+            title: 'Admin indisponível',
+            message: 'Não foi possível carregar a lista de perfis.',
+            debugDetails: e.toString(),
+            onRetry: () => ref.invalidate(adminProfilesProvider),
+          ),
+        ),
       ),
     );
   }

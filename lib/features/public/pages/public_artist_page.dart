@@ -11,6 +11,7 @@ import '../../../shared/models/user_profile.dart';
 import '../../../shared/widgets/pp_badge.dart';
 import '../../../shared/widgets/pp_card.dart';
 import '../../../shared/widgets/pp_logo.dart';
+import '../../profile/services/profile_view_service.dart';
 
 /// Página pública `/artist/:profileId` (sem login)
 class PublicArtistPage extends ConsumerWidget {
@@ -72,10 +73,23 @@ class _NotFound extends StatelessWidget {
   }
 }
 
-class _PublicBody extends StatelessWidget {
+class _PublicBody extends ConsumerStatefulWidget {
   final UserProfile profile;
 
   const _PublicBody({required this.profile});
+
+  @override
+  ConsumerState<_PublicBody> createState() => _PublicBodyState();
+}
+
+class _PublicBodyState extends ConsumerState<_PublicBody> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      recordPublicProfileView(widget.profile.id);
+    });
+  }
 
   Future<void> _open(String? url) async {
     if (url == null || url.trim().isEmpty) return;
@@ -89,7 +103,7 @@ class _PublicBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = profile;
+    final p = widget.profile;
     return Scaffold(
       body: SingleChildScrollView(
         child: Column(
@@ -188,7 +202,7 @@ class _PublicBody extends StatelessWidget {
                   PPCard(
                     child: Text(
                       'Quer cadastrar sua banda no ${AppConstants.appName}? '
-                      'Garanta seu lugar na cena fundadora.',
+                      'Garanta sua vaga no acesso antecipado ao hub.',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ),

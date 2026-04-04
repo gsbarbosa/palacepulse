@@ -1,9 +1,12 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/firebase_rtdb_user_message.dart';
 import '../../../shared/models/user_profile.dart';
 import '../../../shared/widgets/page_container.dart';
 import '../../../shared/widgets/pp_logo.dart';
@@ -21,6 +24,8 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
   final _scrollController = ScrollController();
   bool _isLoading = false;
   String? _errorMessage;
+  /// Detalhe técnico (ex.: código Firebase) para colar no suporte / Console
+  String? _errorDetail;
 
   @override
   void dispose() {
@@ -32,6 +37,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      _errorDetail = null;
     });
 
     final profileService = ref.read(profileServiceProvider);
@@ -73,7 +79,25 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
       await profileService.saveProfile(profile);
       final user = ref.read(currentUserProvider);
       if (user != null) {
-        await profileService.markProfileCompleted(user.uid);
+        try {
+          await profileService.markProfileCompleted(user.uid);
+        } catch (e, st) {
+          debugPrint('[CompleteProfile] markProfileCompleted: $e');
+          debugPrint('$st');
+          if (kIsWeb) {
+            print('[CompleteProfile] markProfileCompleted: $e');
+          }
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Perfil criado. Se algo falhar na conta, abra Meu perfil e salve de novo.',
+                ),
+                duration: Duration(seconds: 6),
+              ),
+            );
+          }
+        }
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -90,11 +114,20 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
         );
         context.go('/dashboard');
       }
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[CompleteProfile] saveProfile: $e');
+      debugPrint('$st');
+      if (kIsWeb) {
+        print('[CompleteProfile] saveProfile: $e');
+      }
+      final detail = e is FirebaseException
+          ? '${e.plugin}/${e.code}: ${e.message}'
+          : e.toString();
       setState(() {
         _errorMessage = e.toString().contains('early_access_limit_reached')
             ? 'As vagas do pré-lançamento foram esgotadas. Em breve teremos novidades!'
-            : 'Erro ao salvar perfil. Tente novamente.';
+            : firebaseRtdbSaveUserMessage(e);
+        _errorDetail = detail.length > 400 ? '${detail.substring(0, 400)}…' : detail;
         _isLoading = false;
       });
     }
@@ -138,11 +171,40 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: AppColors.error.withOpacity(0.3)),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.error_outline, color: AppColors.error, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(_errorMessage!, style: const TextStyle(color: AppColors.error))),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _errorMessage!,
+                              style: const TextStyle(color: AppColors.error),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_errorDetail != null) ...[
+                        const SizedBox(height: 8),
+                        SelectableText(
+                          _errorDetail!,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.textSecondary,
+                                fontFamily: 'monospace',
+                                fontSize: 11,
+                              ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'No Chrome: F12 → aba Console e filtre por [CompleteProfile].',
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
