@@ -142,9 +142,12 @@ class _GigbagChecklistBody extends ConsumerWidget {
             body: const Center(child: Text('Checklist não encontrada')),
           );
         }
+        final canWrite =
+            ref.watch(workspaceCanWriteProvider(profile.id)).valueOrNull ?? false;
         return _ChecklistEditorView(
           profile: profile,
           initial: c,
+          readOnly: !canWrite,
           onSave: (updated) => _save(context, ref, updated),
         );
       },
@@ -169,11 +172,13 @@ class _GigbagChecklistBody extends ConsumerWidget {
 class _ChecklistEditorView extends StatefulWidget {
   final UserProfile profile;
   final GigBagChecklist initial;
+  final bool readOnly;
   final Future<void> Function(GigBagChecklist) onSave;
 
   const _ChecklistEditorView({
     required this.profile,
     required this.initial,
+    required this.readOnly,
     required this.onSave,
   });
 
@@ -212,6 +217,7 @@ class _ChecklistEditorViewState extends State<_ChecklistEditorView> {
   }
 
   Future<void> _addItem() async {
+    if (widget.readOnly) return;
     final text = _newItemCtrl.text.trim();
     if (text.isEmpty) return;
     final ref = appFirebaseDatabase
@@ -229,6 +235,7 @@ class _ChecklistEditorViewState extends State<_ChecklistEditorView> {
   }
 
   Future<void> _toggleItem(GigBagItem it) async {
+    if (widget.readOnly) return;
     final items = _c.items
         .map(
           (x) => x.id == it.id ? x.copyWith(checked: !x.checked) : x,
@@ -238,6 +245,7 @@ class _ChecklistEditorViewState extends State<_ChecklistEditorView> {
   }
 
   Future<void> _removeItem(GigBagItem it) async {
+    if (widget.readOnly) return;
     final items = _c.items.where((x) => x.id != it.id).toList();
     for (var i = 0; i < items.length; i++) {
       items[i] = items[i].copyWith(order: i);
@@ -246,11 +254,13 @@ class _ChecklistEditorViewState extends State<_ChecklistEditorView> {
   }
 
   Future<void> _resetChecks() async {
+    if (widget.readOnly) return;
     final items = _c.items.map((x) => x.copyWith(checked: false)).toList();
     await _persist(_c.copyWith(items: items));
   }
 
   Future<void> _editMeta(BuildContext context) async {
+    if (widget.readOnly) return;
     final titleCtrl = TextEditingController(text: _c.title);
     var type = _c.type;
     var isTemplate = _c.isTemplate;
@@ -313,6 +323,7 @@ class _ChecklistEditorViewState extends State<_ChecklistEditorView> {
   }
 
   Future<void> _duplicate(BuildContext context, WidgetRef ref) async {
+    if (widget.readOnly) return;
     try {
       await ref.read(artistWorkspaceServiceProvider).duplicateChecklist(_c);
       if (context.mounted) {
@@ -335,6 +346,7 @@ class _ChecklistEditorViewState extends State<_ChecklistEditorView> {
   }
 
   Future<void> _delete(BuildContext context, WidgetRef ref) async {
+    if (widget.readOnly) return;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -364,31 +376,44 @@ class _ChecklistEditorViewState extends State<_ChecklistEditorView> {
             icon: const Icon(Icons.arrow_back_rounded),
             tooltip: 'Voltar ao GigBag',
           ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.edit_rounded),
-              tooltip: 'Editar nome e tipo',
-              onPressed: () => _editMeta(context),
-            ),
-            PopupMenuButton<String>(
-              onSelected: (v) {
-                if (v == 'dup') _duplicate(context, ref);
-                if (v == 'reset') _resetChecks();
-                if (v == 'del') _delete(context, ref);
-              },
-              itemBuilder: (ctx) => const [
-                PopupMenuItem(value: 'dup', child: Text('Duplicar')),
-                PopupMenuItem(value: 'reset', child: Text('Limpar marcações')),
-                PopupMenuItem(value: 'del', child: Text('Excluir')),
-              ],
-            ),
-          ],
+          actions: widget.readOnly
+              ? const <Widget>[]
+              : [
+                  IconButton(
+                    icon: const Icon(Icons.edit_rounded),
+                    tooltip: 'Editar nome e tipo',
+                    onPressed: () => _editMeta(context),
+                  ),
+                  PopupMenuButton<String>(
+                    onSelected: (v) {
+                      if (v == 'dup') _duplicate(context, ref);
+                      if (v == 'reset') _resetChecks();
+                      if (v == 'del') _delete(context, ref);
+                    },
+                    itemBuilder: (ctx) => const [
+                      PopupMenuItem(value: 'dup', child: Text('Duplicar')),
+                      PopupMenuItem(value: 'reset', child: Text('Limpar marcações')),
+                      PopupMenuItem(value: 'del', child: Text('Excluir')),
+                    ],
+                  ),
+                ],
           body: PageContainer(
             maxWidth: 560,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                PPCard(
+                if (widget.readOnly) ...[
+                  Text(
+                    'Somente leitura — você pode ver a lista, mas não alterar itens.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                          height: 1.4,
+                        ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                if (!widget.readOnly)
+                  PPCard(
                     child: Row(
                       children: [
                         Expanded(
@@ -409,41 +434,45 @@ class _ChecklistEditorViewState extends State<_ChecklistEditorView> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  if (_c.items.isEmpty)
-                    Text(
-                      'Adicione itens acima. Nada é apagado ao marcar — só ao excluir o item.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                    )
-                  else
-                    ..._c.items.map((it) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: PPCard(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          child: CheckboxListTile(
-                            value: it.checked,
-                            onChanged: (_) => _toggleItem(it),
-                            title: Text(
-                              it.description,
-                              style: TextStyle(
-                                decoration:
-                                    it.checked ? TextDecoration.lineThrough : null,
-                                color: it.checked ? AppColors.textSecondary : null,
-                              ),
-                            ),
-                            secondary: IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded),
-                              onPressed: () => _removeItem(it),
-                            ),
-                            controlAffinity: ListTileControlAffinity.leading,
-                            contentPadding: EdgeInsets.zero,
-                          ),
+                if (!widget.readOnly) const SizedBox(height: 16),
+                if (_c.items.isEmpty)
+                  Text(
+                    widget.readOnly
+                        ? 'Esta checklist ainda não tem itens.'
+                        : 'Adicione itens acima. Nada é apagado ao marcar — só ao excluir o item.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondary,
                         ),
-                      );
-                    }),
+                  )
+                else
+                  ..._c.items.map((it) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: PPCard(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: CheckboxListTile(
+                          value: it.checked,
+                          onChanged: widget.readOnly ? null : (_) => _toggleItem(it),
+                          title: Text(
+                            it.description,
+                            style: TextStyle(
+                              decoration:
+                                  it.checked ? TextDecoration.lineThrough : null,
+                              color: it.checked ? AppColors.textSecondary : null,
+                            ),
+                          ),
+                          secondary: widget.readOnly
+                              ? null
+                              : IconButton(
+                                  icon: const Icon(Icons.delete_outline_rounded),
+                                  onPressed: () => _removeItem(it),
+                                ),
+                          controlAffinity: ListTileControlAffinity.leading,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    );
+                  }),
               ],
             ),
           ),

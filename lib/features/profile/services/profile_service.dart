@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:math';
+
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -6,6 +10,7 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/firebase/app_firebase_database.dart';
 import '../../../../core/firebase/rtdb_rest_client.dart';
 import '../../../../core/utils/profile_lookup.dart';
+import '../../../../shared/models/profile_member.dart';
 import '../../../../shared/models/user_profile.dart';
 
 /// Serviço de perfil com Firebase Realtime Database
@@ -103,11 +108,22 @@ class ProfileService {
   Future<String> saveProfile(UserProfile profile) async {
     await _refreshAuthTokenForRtdb();
     final uid = FirebaseAuth.instance.currentUser!.uid;
-    if (profile.ownerUserId != uid) {
-      throw StateError('owner_mismatch');
-    }
 
     final isNew = profile.id.isEmpty;
+    if (isNew) {
+      if (profile.ownerUserId != uid) {
+        throw StateError('owner_mismatch');
+      }
+    } else {
+      final existing = await getProfile(profile.id);
+      if (existing == null) throw StateError('not_found');
+      if (profile.ownerUserId != existing.ownerUserId) {
+        throw StateError('owner_mismatch');
+      }
+      final allowed = await canEditProfileMetadata(uid, profile.id);
+      if (!allowed) throw StateError('forbidden');
+    }
+
     if (isNew) {
       final atLimit = await isAtEarlyAccessLimit();
       if (atLimit) {
@@ -224,58 +240,23 @@ class ProfileService {
     return null;
   }
 
-  /// Lista todos os perfis do usuário
+  /// Lista perfis **próprios** + **compartilhados** (`user_profile_access`)
   Future<List<UserProfile>> getProfilesForUser(String userId) async {
-    final snapshot = await _db
-        .child(AppConstants.profilesByOwnerPath)
-        .child(userId)
-        .get();
+    final ids = <String>{};
 
-    if (snapshot.exists && snapshot.value != null) {
-      final profileIds =
-          Map<String, dynamic>.from(snapshot.value as Map).keys.cast<String>();
-    final profiles = <UserProfile>[];
-
-    for (final id in profileIds) {
-      final profile = await getProfile(id);
-      if (profile != null) profiles.add(profile);
+    final ownedSnap =
+        await _db.child(AppConstants.profilesByOwnerPath).child(userId).get();
+    if (ownedSnap.exists && ownedSnap.value != null) {
+      ids.addAll(Map<String, dynamic>.from(ownedSnap.value as Map).keys.cast<String>());
     }
 
-      profiles.sort((a, b) => a.artistName.compareTo(b.artistName));
-      return profiles;
+    final accessSnap =
+        await _db.child(AppConstants.userProfileAccessPath).child(userId).get();
+    if (accessSnap.exists && accessSnap.value != null) {
+      ids.addAll(Map<String, dynamic>.from(accessSnap.value as Map).keys.cast<String>());
     }
 
-    final legacySnapshot =
-        await _db.child(AppConstants.profilesPath).child(userId).get();
-    if (legacySnapshot.exists && legacySnapshot.value != null) {
-      final p = UserProfile.fromMap(
-        userId,
-        Map<String, dynamic>.from(legacySnapshot.value as Map),
-        ownerUserIdOverride: userId,
-      );
-      return [p];
-    }
-    return [];
-  }
-
-  /// Stream dos perfis do usuário (reativo)
-  Stream<List<UserProfile>> profilesStreamForUser(String userId) {
-    return _db
-        .child(AppConstants.profilesByOwnerPath)
-        .child(userId)
-        .onValue
-        .asyncMap((event) async {
-      if (event.snapshot.exists && event.snapshot.value != null) {
-        final profileIds =
-            Map<String, dynamic>.from(event.snapshot.value as Map).keys.cast<String>();
-        final profiles = <UserProfile>[];
-        for (final id in profileIds) {
-          final profile = await getProfile(id);
-          if (profile != null) profiles.add(profile);
-        }
-        profiles.sort((a, b) => a.artistName.compareTo(b.artistName));
-        return profiles;
-      }
+    if (ids.isEmpty) {
       final legacySnapshot =
           await _db.child(AppConstants.profilesPath).child(userId).get();
       if (legacySnapshot.exists && legacySnapshot.value != null) {
@@ -287,7 +268,52 @@ class ProfileService {
         return [p];
       }
       return [];
-    });
+    }
+
+    final profiles = <UserProfile>[];
+    for (final id in ids) {
+      final profile = await getProfile(id);
+      if (profile != null) profiles.add(profile);
+    }
+    profiles.sort((a, b) => a.artistName.compareTo(b.artistName));
+    return profiles;
+  }
+
+  /// Stream dos perfis do usuário (donos + compartilhados)
+  Stream<List<UserProfile>> profilesStreamForUser(String userId) {
+    StreamSubscription<DatabaseEvent>? subOwned;
+    StreamSubscription<DatabaseEvent>? subAccess;
+
+    Future<void> emit(StreamController<List<UserProfile>> c) async {
+      try {
+        if (!c.isClosed) c.add(await getProfilesForUser(userId));
+      } catch (e, st) {
+        if (!c.isClosed) c.addError(e, st);
+      }
+    }
+
+    late final StreamController<List<UserProfile>> controller;
+    controller = StreamController<List<UserProfile>>(
+      onListen: () {
+        subOwned = _db
+            .child(AppConstants.profilesByOwnerPath)
+            .child(userId)
+            .onValue
+            .listen((_) => emit(controller));
+        subAccess = _db
+            .child(AppConstants.userProfileAccessPath)
+            .child(userId)
+            .onValue
+            .listen((_) => emit(controller));
+        emit(controller);
+      },
+      onCancel: () async {
+        await subOwned?.cancel();
+        await subAccess?.cancel();
+      },
+    );
+
+    return controller.stream;
   }
 
   /// Atualiza flag profileCompleted no nó users
@@ -474,17 +500,195 @@ class ProfileService {
     return list;
   }
 
+  // --- Acesso compartilhado (banda / projeto) ---
+
+  /// Papel do usuário: `owner`, [AppConstants.roleAdmin], [roleEditor], [roleViewer] ou `none`
+  Future<String> getWorkspaceRole(String userId, String profileId) async {
+    final p = await getProfile(profileId);
+    if (p == null) return 'none';
+    if (p.ownerUserId == userId) return 'owner';
+    final snap =
+        await _db.child(AppConstants.userProfileAccessPath).child(userId).child(profileId).get();
+    if (!snap.exists || snap.value == null) return 'none';
+    final map = Map<String, dynamic>.from(snap.value as Map);
+    return map['role']?.toString() ?? 'editor';
+  }
+
+  /// Lê agenda, GigBag etc. (qualquer membro ou dono)
+  Future<bool> canAccessProfile(String userId, String profileId) async {
+    final role = await getWorkspaceRole(userId, profileId);
+    return role != 'none';
+  }
+
+  /// Editar metadados do perfil público / formulário
+  Future<bool> canEditProfileMetadata(String userId, String profileId) async {
+    final role = await getWorkspaceRole(userId, profileId);
+    return role == 'owner' || role == AppConstants.roleAdmin;
+  }
+
+  /// Criar convites ou remover membros
+  Future<bool> canManageMembers(String userId, String profileId) async {
+    final role = await getWorkspaceRole(userId, profileId);
+    return role == 'owner' || role == AppConstants.roleAdmin;
+  }
+
+  /// Escrita em shows, tarefas, GigBag (não inclui viewer)
+  Future<bool> canWriteWorkspace(String userId, String profileId) async {
+    final role = await getWorkspaceRole(userId, profileId);
+    return role == 'owner' ||
+        role == AppConstants.roleAdmin ||
+        role == AppConstants.roleEditor;
+  }
+
+  /// Gera convite. Só dono (recomendado) ou admin; grava `invite_by_code/{token}`.
+  Future<String> createProfileInvite(
+    String profileId, {
+    String role = AppConstants.roleEditor,
+    int maxUses = 30,
+    int expiresInDays = 60,
+  }) async {
+    await _refreshAuthTokenForRtdb();
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+    if (!await canManageMembers(uid, profileId)) {
+      throw StateError('forbidden');
+    }
+    final r = role.trim();
+    if (r != AppConstants.roleAdmin &&
+        r != AppConstants.roleEditor &&
+        r != AppConstants.roleViewer) {
+      throw StateError('invalid_role');
+    }
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789abcdefghijkmnpqrstuvwxyz';
+    final rand = Random.secure();
+    final token = List.generate(28, (_) => alphabet[rand.nextInt(alphabet.length)]).join();
+    final now = DateTime.now();
+    final expiresAt = now.add(Duration(days: expiresInDays)).millisecondsSinceEpoch;
+    final payload = <String, dynamic>{
+      'profileId': profileId,
+      'role': r,
+      'maxUses': maxUses,
+      'uses': 0,
+      'createdAt': now.toIso8601String(),
+      'expiresAt': expiresAt,
+      'createdBy': uid,
+    };
+    final path = '${AppConstants.inviteByCodePath}/$token';
+    if (kIsWeb) {
+      await RtdbRestClient.putJson(path, payload);
+    } else {
+      await _db.child(AppConstants.inviteByCodePath).child(token).set(payload);
+    }
+    return token;
+  }
+
+  /// Consome convite via Cloud Function `acceptInvite` (atualiza RTDB com privilégio admin).
+  Future<Map<String, dynamic>> acceptInviteWithCallable(String token) async {
+    final trimmed = token.trim();
+    if (trimmed.isEmpty) throw StateError('empty_token');
+    final callable = FirebaseFunctions.instance.httpsCallable('acceptInvite');
+    final result = await callable.call(<String, dynamic>{'token': trimmed});
+    final data = result.data;
+    if (data is! Map) return {};
+    return Map<String, dynamic>.from(
+      data.map((k, v) => MapEntry(k.toString(), v)),
+    );
+  }
+
+  /// Membros com linha em `profile_members` (não inclui o dono, que vem do perfil)
+  Future<Map<String, ProfileMemberEntry>> listProfileMemberEntries(String profileId) async {
+    final snap = await _db.child(AppConstants.profileMembersPath).child(profileId).get();
+    if (!snap.exists || snap.value == null) return {};
+    final raw = Map<String, dynamic>.from(snap.value as Map);
+    return raw.map(
+      (k, v) => MapEntry(
+        k,
+        ProfileMemberEntry.fromMap(k, Map<String, dynamic>.from(v as Map)),
+      ),
+    );
+  }
+
+  /// Remove membro (dono ou admin). Não remove o dono do projeto.
+  Future<void> removeMemberFromProfile(String profileId, String memberUid) async {
+    await _refreshAuthTokenForRtdb();
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+    if (!await canManageMembers(uid, profileId)) throw StateError('forbidden');
+    final p = await getProfile(profileId);
+    if (p != null && p.ownerUserId == memberUid) {
+      throw StateError('cannot_remove_owner');
+    }
+    if (kIsWeb) {
+      await RtdbRestClient.delete(
+        '${AppConstants.userProfileAccessPath}/$memberUid/$profileId',
+      );
+      await RtdbRestClient.delete(
+        '${AppConstants.profileMembersPath}/$profileId/$memberUid',
+      );
+    } else {
+      await _db.child(AppConstants.userProfileAccessPath).child(memberUid).child(profileId).remove();
+      await _db.child(AppConstants.profileMembersPath).child(profileId).child(memberUid).remove();
+    }
+  }
+
+  /// Integrante sai do projeto (não se aplica ao dono)
+  Future<void> leaveSharedProject(String profileId) async {
+    await _refreshAuthTokenForRtdb();
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+    final p = await getProfile(profileId);
+    if (p != null && p.ownerUserId == uid) {
+      throw StateError('owner_cannot_leave');
+    }
+    if (kIsWeb) {
+      await RtdbRestClient.delete('${AppConstants.userProfileAccessPath}/$uid/$profileId');
+      await RtdbRestClient.delete('${AppConstants.profileMembersPath}/$profileId/$uid');
+    } else {
+      await _db.child(AppConstants.userProfileAccessPath).child(uid).child(profileId).remove();
+      await _db.child(AppConstants.profileMembersPath).child(profileId).child(uid).remove();
+    }
+  }
+
+  Future<void> _removeAllSharedAccessForUser(String userId) async {
+    final snap = await _db.child(AppConstants.userProfileAccessPath).child(userId).get();
+    if (!snap.exists || snap.value == null) return;
+    final ids = Map<String, dynamic>.from(snap.value as Map).keys.cast<String>();
+    for (final profileId in ids) {
+      try {
+        if (kIsWeb) {
+          await RtdbRestClient.delete(
+            '${AppConstants.userProfileAccessPath}/$userId/$profileId',
+          );
+          await RtdbRestClient.delete(
+            '${AppConstants.profileMembersPath}/$profileId/$userId',
+          );
+        } else {
+          await _db.child(AppConstants.userProfileAccessPath).child(userId).child(profileId).remove();
+          await _db.child(AppConstants.profileMembersPath).child(profileId).child(userId).remove();
+        }
+      } catch (_) {}
+    }
+  }
+
   /// Desativa todos os perfis e marca a conta como inativa (soft delete)
   Future<void> deactivateUserAccount(String userId) async {
-    final profiles = await getProfilesForUser(userId);
+    await _removeAllSharedAccessForUser(userId);
+
+    final ownedSnap =
+        await _db.child(AppConstants.profilesByOwnerPath).child(userId).get();
+    final ownedIds = <String>{};
+    if (ownedSnap.exists && ownedSnap.value != null) {
+      ownedIds.addAll(Map<String, dynamic>.from(ownedSnap.value as Map).keys.cast<String>());
+    }
+
     final now = DateTime.now();
-    for (final p in profiles) {
-      final updated = p.copyWith(
-        status: 'inactive',
-        publicProfile: false,
-        updatedAt: now,
-      );
-      await _db.child(AppConstants.profilesPath).child(p.id).set(updated.toMap());
+    for (final id in ownedIds) {
+      final p = await getProfile(id);
+      if (p != null) {
+        final updated = p.copyWith(
+          status: 'inactive',
+          publicProfile: false,
+          updatedAt: now,
+        );
+        await _db.child(AppConstants.profilesPath).child(p.id).set(updated.toMap());
+      }
     }
     await _db.child(AppConstants.usersPath).child(userId).update({
       'accountStatus': 'inactive',
@@ -492,19 +696,33 @@ class ProfileService {
     });
   }
 
-  /// Remove perfis, vínculos e registro do usuário no Realtime Database
+  /// Remove perfis **próprios**, vínculos e registro do usuário (não apaga projetos só compartilhados)
   Future<void> deleteUserDatabaseData(String userId) async {
-    final profiles = await getProfilesForUser(userId);
-    for (final p in profiles) {
-      await _db.child(AppConstants.profilesPath).child(p.id).remove();
+    await _removeAllSharedAccessForUser(userId);
+
+    final ownedSnap =
+        await _db.child(AppConstants.profilesByOwnerPath).child(userId).get();
+    final ownedIds = <String>[];
+    if (ownedSnap.exists && ownedSnap.value != null) {
+      ownedIds.addAll(Map<String, dynamic>.from(ownedSnap.value as Map).keys.cast<String>());
+    }
+
+    for (final id in ownedIds) {
       try {
-        await _db.child(AppConstants.profileViewsPath).child(p.id).remove();
+        await _db.child(AppConstants.profileMembersPath).child(id).remove();
+      } catch (_) {}
+      await _db.child(AppConstants.profilesPath).child(id).remove();
+      try {
+        await _db.child(AppConstants.profileViewsPath).child(id).remove();
       } catch (_) {}
       try {
         await _db.child(AppConstants.totalProfilesPath).set(ServerValue.increment(-1));
       } catch (_) {}
     }
     await _db.child(AppConstants.profilesByOwnerPath).child(userId).remove();
+    try {
+      await _db.child(AppConstants.userProfileAccessPath).child(userId).remove();
+    } catch (_) {}
     await _db.child(AppConstants.usersPath).child(userId).remove();
   }
 }

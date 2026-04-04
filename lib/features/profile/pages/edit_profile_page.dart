@@ -97,45 +97,79 @@ class _EditProfileContentState extends ConsumerState<_EditProfileContent> {
 
   @override
   Widget build(BuildContext context) {
-    return WorkspacePageScaffold(
-      title: 'Editar projeto',
-      subtitle: widget.profile.artistName,
-      leading: IconButton.filledTonal(
-        onPressed: () => context.pop(),
-        icon: const Icon(Icons.arrow_back_rounded),
-        tooltip: 'Voltar',
-      ),
-      body: PageContainer(
-        maxWidth: 600,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (_errorMessage != null) ...[
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.error.withOpacity(0.3)),
+    final canEditAsync = ref.watch(profileCanEditMetadataProvider(widget.profile.id));
+
+    return canEditAsync.when(
+      data: (canEdit) {
+        return WorkspacePageScaffold(
+          title: canEdit ? 'Editar projeto' : 'Projeto (somente leitura)',
+          subtitle: widget.profile.artistName,
+          leading: IconButton.filledTonal(
+            onPressed: () => context.pop(),
+            icon: const Icon(Icons.arrow_back_rounded),
+            tooltip: 'Voltar',
+          ),
+          body: PageContainer(
+            maxWidth: 600,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_errorMessage != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                            child: Text(_errorMessage!,
+                                style: const TextStyle(color: AppColors.error))),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                ProfileForm(
+                  ownerUserId: widget.profile.ownerUserId,
+                  initialProfile: widget.profile,
+                  onSubmit: _saveProfile,
+                  isLoading: _isLoading,
+                  scrollController: _scrollController,
+                  readOnly: !canEdit,
                 ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline, color: AppColors.error, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(_errorMessage!, style: const TextStyle(color: AppColors.error))),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-            ProfileForm(
-              ownerUserId: widget.profile.ownerUserId,
-              initialProfile: widget.profile,
-              onSubmit: _saveProfile,
-              isLoading: _isLoading,
-              scrollController: _scrollController,
+              ],
             ),
-          ],
+          ),
+        );
+      },
+      loading: () => WorkspacePageScaffold(
+        title: 'Projeto',
+        subtitle: widget.profile.artistName,
+        leading: IconButton.filledTonal(
+          onPressed: () => context.pop(),
+          icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: 'Voltar',
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => WorkspacePageScaffold(
+        title: 'Projeto',
+        subtitle: widget.profile.artistName,
+        leading: IconButton.filledTonal(
+          onPressed: () => context.pop(),
+          icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: 'Voltar',
+        ),
+        body: Center(
+          child: PPErrorState(
+            debugDetails: e.toString(),
+            onRetry: () => ref.invalidate(profileCanEditMetadataProvider(widget.profile.id)),
+          ),
         ),
       ),
     );

@@ -12,6 +12,7 @@ class ProfilePhotoSection extends StatefulWidget {
   final String profileId;
   final String? photoUrl;
   final ValueChanged<String?> onUrlChanged;
+  final bool allowUpload;
 
   const ProfilePhotoSection({
     super.key,
@@ -19,6 +20,7 @@ class ProfilePhotoSection extends StatefulWidget {
     required this.profileId,
     required this.photoUrl,
     required this.onUrlChanged,
+    this.allowUpload = true,
   });
 
   @override
@@ -140,30 +142,32 @@ class _ProfilePhotoSectionState extends State<ProfilePhotoSection> {
                   : null,
             ),
             const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  PPButton(
-                    label: 'Escolher imagem',
-                    onPressed: _pickAndUpload,
-                    isLoading: _uploading,
-                    variant: PPButtonVariant.outline,
-                  ),
-                  if (widget.photoUrl != null && widget.photoUrl!.isNotEmpty)
-                    TextButton(
-                      onPressed: _uploading ? null : _remove,
-                      child: const Text('Remover foto'),
+            if (widget.allowUpload)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    PPButton(
+                      label: 'Escolher imagem',
+                      onPressed: _pickAndUpload,
+                      isLoading: _uploading,
+                      variant: PPButtonVariant.outline,
                     ),
-                ],
+                    if (widget.photoUrl != null && widget.photoUrl!.isNotEmpty)
+                      TextButton(
+                        onPressed: _uploading ? null : _remove,
+                        child: const Text('Remover foto'),
+                      ),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
-        Text(
-          'JPEG, PNG ou WebP · até 5 MB',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
-        ),
+        if (widget.allowUpload)
+          Text(
+            'JPEG, PNG ou WebP · até 5 MB',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+          ),
         const SizedBox(height: 20),
       ],
     );

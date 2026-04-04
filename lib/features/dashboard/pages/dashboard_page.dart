@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/dashboard_modules.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
@@ -109,30 +108,12 @@ class DashboardPage extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: AppSpacing.lg),
-                        Text(
-                          'Use o menu lateral (ou a barra inferior no celular) para alternar módulos. '
-                          'Abaixo, o resumo do projeto ativo e as ferramentas na ordem da sua jornada — '
-                          'sempre o mesmo projeto selecionado na barra superior.',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: AppColors.textSecondary,
-                                height: 1.45,
-                              ),
-                        ),
-                        const SizedBox(height: AppSpacing.xl),
                         DashboardOperationPanel(profile: active),
                         const SizedBox(height: AppSpacing.xxl),
                         Text(
                           'Ferramentas do projeto',
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                 fontWeight: FontWeight.w800,
-                              ),
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          'Da agenda à divulgação: cada etapa abre o módulo correspondente para o projeto em foco.',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: AppColors.textSecondary,
-                                height: 1.45,
                               ),
                         ),
                         const SizedBox(height: AppSpacing.lg),
@@ -147,15 +128,6 @@ class DashboardPage extends ConsumerWidget {
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                 fontWeight: FontWeight.w800,
                                 color: AppColors.textSecondary,
-                              ),
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          'Recursos planejados — ainda não entram na operação do dia a dia. '
-                          'Quando estiverem prontos, aparecerão na seção de ferramentas acima.',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: AppColors.textSecondary,
-                                height: 1.45,
                               ),
                         ),
                         const SizedBox(height: AppSpacing.lg),
@@ -267,6 +239,7 @@ class _HeroSection extends StatelessWidget {
       ),
       child: PageContainer(
         maxWidth: AppSpacing.maxContent,
+        centered: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -282,22 +255,17 @@ class _HeroSection extends StatelessWidget {
               TextSpan(
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: AppColors.textSecondary,
-                      height: 1.5,
+                      height: 1.45,
                     ),
                 children: [
-                  const TextSpan(
-                    text:
-                        'Esta é sua central no ${AppConstants.appName}: um hub para agenda, checklists, '
-                        'lançamentos e perfil público — ',
-                  ),
+                  const TextSpan(text: 'Você está em '),
                   TextSpan(
                     text: projectName,
                     style: const TextStyle(
                       color: AppColors.primary,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const TextSpan(text: ' é o projeto em foco agora.'),
                 ],
               ),
             ),

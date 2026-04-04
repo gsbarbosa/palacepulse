@@ -21,6 +21,7 @@ class ProfileForm extends StatefulWidget {
   final void Function(UserProfile profile) onSubmit;
   final bool isLoading;
   final ScrollController? scrollController;
+  final bool readOnly;
 
   const ProfileForm({
     super.key,
@@ -29,6 +30,7 @@ class ProfileForm extends StatefulWidget {
     required this.onSubmit,
     this.isLoading = false,
     this.scrollController,
+    this.readOnly = false,
   });
 
   @override
@@ -132,6 +134,7 @@ class _ProfileFormState extends State<ProfileForm> {
   }
 
   void _submit() {
+    if (widget.readOnly) return;
     if (!(_formKey.currentState?.validate() ?? false)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -197,17 +200,44 @@ class _ProfileFormState extends State<ProfileForm> {
 
   @override
   Widget build(BuildContext context) {
+    final ro = widget.readOnly;
     return Form(
       key: _formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (ro) ...[
+            Material(
+              color: AppColors.surfaceSecondary,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Icon(Icons.visibility_rounded, color: AppColors.primary, size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Você tem acesso somente leitura a estes dados.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textSecondary,
+                              height: 1.35,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
           if (widget.initialProfile != null && widget.initialProfile!.id.isNotEmpty) ...[
             ProfilePhotoSection(
               ownerUserId: widget.ownerUserId,
               profileId: widget.initialProfile!.id,
               photoUrl: _photoUrl,
               onUrlChanged: (u) => setState(() => _photoUrl = u),
+              allowUpload: !ro,
             ),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
@@ -219,7 +249,7 @@ class _ProfileFormState extends State<ProfileForm> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               value: _publicProfile,
-              onChanged: (v) => setState(() => _publicProfile = v),
+              onChanged: ro ? null : (v) => setState(() => _publicProfile = v),
             ),
             const SizedBox(height: 16),
           ],
@@ -227,15 +257,17 @@ class _ProfileFormState extends State<ProfileForm> {
             label: 'Nome da banda ou artista *',
             hint: 'Como você ou sua banda se apresenta',
             controller: _artistNameController,
+            enabled: !ro,
             validator: (v) => Validators.required(v, 'Nome'),
           ),
           const SizedBox(height: 20),
-          _buildArtistTypeSelector(),
+          IgnorePointer(ignoring: ro, child: _buildArtistTypeSelector()),
           const SizedBox(height: 20),
           PPDropdown<String>(
             label: 'Estado *',
             hint: 'Selecione o estado',
             value: _selectedState,
+            enabled: !ro,
             items: [
               const DropdownMenuItem(value: null, child: Text('Selecione...')),
               ...AppConstants.brazilianStates.map(
@@ -256,6 +288,7 @@ class _ProfileFormState extends State<ProfileForm> {
             label: 'Cidade *',
             hint: _selectedState == null ? 'Selecione o estado primeiro' : 'Selecione a cidade',
             value: _selectedCity,
+            enabled: !ro,
             items: _buildCityDropdownItems(),
             onChanged: _selectedState == null
                 ? null
@@ -274,6 +307,7 @@ class _ProfileFormState extends State<ProfileForm> {
               label: 'Nome da cidade *',
               hint: 'Digite sua cidade',
               controller: _cityController,
+              enabled: !ro,
               validator: (v) => _selectedCity == otherCityValue && (v == null || v.trim().isEmpty)
                   ? 'Informe o nome da cidade'
                   : null,
@@ -285,6 +319,7 @@ class _ProfileFormState extends State<ProfileForm> {
             label: 'Gênero musical principal *',
             hint: 'Selecione o gênero',
             value: _selectedGenre,
+            enabled: !ro,
             items: [
               const DropdownMenuItem(value: null, child: Text('Selecione...')),
               ...AppConstants.musicGenres.map(
@@ -299,6 +334,7 @@ class _ProfileFormState extends State<ProfileForm> {
             label: 'Instagram *',
             hint: '@seuusername',
             controller: _instagramController,
+            enabled: !ro,
             validator: (v) => Validators.required(v, 'Instagram'),
           ),
           const SizedBox(height: 20),
@@ -306,6 +342,7 @@ class _ProfileFormState extends State<ProfileForm> {
             label: 'Contato principal *',
             hint: 'Email ou telefone',
             controller: _contactController,
+            enabled: !ro,
             keyboardType: TextInputType.emailAddress,
             validator: (v) => Validators.required(v, 'Contato'),
           ),
@@ -319,24 +356,28 @@ class _ProfileFormState extends State<ProfileForm> {
             label: 'Spotify',
             hint: 'Link do perfil',
             controller: _spotifyController,
+            enabled: !ro,
           ),
           const SizedBox(height: 16),
           PPInput(
             label: 'YouTube',
             hint: 'Link do canal',
             controller: _youtubeController,
+            enabled: !ro,
           ),
           const SizedBox(height: 16),
           PPInput(
             label: 'TikTok',
             hint: '@usuario',
             controller: _tiktokController,
+            enabled: !ro,
           ),
           const SizedBox(height: 16),
           PPInput(
             label: 'Breve descrição / bio',
             hint: 'Conte um pouco sobre seu projeto',
             controller: _bioController,
+            enabled: !ro,
             maxLines: 3,
             maxLength: 300,
           ),
@@ -354,7 +395,7 @@ class _ProfileFormState extends State<ProfileForm> {
               return FilterChip(
                 label: Text(opt),
                 selected: selected,
-                onSelected: (_) => _toggleInterest(opt),
+                onSelected: ro ? null : (_) => _toggleInterest(opt),
                 backgroundColor: AppColors.surfaceSecondary,
                 selectedColor: AppColors.secondary.withOpacity(0.3),
                 checkmarkColor: AppColors.secondary,
@@ -369,12 +410,13 @@ class _ProfileFormState extends State<ProfileForm> {
             _buildDeclarationCheckbox(context),
           ],
           const SizedBox(height: 40),
-          PPButton(
-            label: 'Salvar perfil',
-            onPressed: _submit,
-            isLoading: widget.isLoading,
-            fullWidth: true,
-          ),
+          if (!ro)
+            PPButton(
+              label: 'Salvar perfil',
+              onPressed: _submit,
+              isLoading: widget.isLoading,
+              fullWidth: true,
+            ),
         ],
       ),
     );

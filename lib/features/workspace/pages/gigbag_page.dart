@@ -171,15 +171,18 @@ class _GigbagBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(gigbagStreamProvider(profile.id));
+    final canWrite = ref.watch(workspaceCanWriteProvider(profile.id)).valueOrNull ?? false;
 
     return WorkspacePageScaffold(
       title: 'GigBag — checklists de palco e estrada',
       subtitle: profile.artistName,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _newChecklist(context, ref),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Nova checklist'),
-      ),
+      floatingActionButton: canWrite
+          ? FloatingActionButton.extended(
+              onPressed: () => _newChecklist(context, ref),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Nova checklist'),
+            )
+          : null,
       body: PageContainer(
         maxWidth: 640,
         child: Column(

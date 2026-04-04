@@ -66,15 +66,18 @@ class _ShowsScaffold extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncShows = ref.watch(showsStreamProvider(profile.id));
+    final canWrite = ref.watch(workspaceCanWriteProvider(profile.id)).valueOrNull ?? false;
 
     return WorkspacePageScaffold(
       title: 'Agenda de compromissos',
       subtitle: profile.artistName,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showArtistShowEditor(context, ref, profile: profile, existing: null),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Novo compromisso'),
-      ),
+      floatingActionButton: canWrite
+          ? FloatingActionButton.extended(
+              onPressed: () => showArtistShowEditor(context, ref, profile: profile, existing: null),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Novo compromisso'),
+            )
+          : null,
       body: PageContainer(
         maxWidth: 640,
         child: Column(
@@ -123,6 +126,7 @@ class _ShowsScaffold extends ConsumerWidget {
                     else
                       ...upcoming.map((s) => _ShowTile(
                             show: s,
+                            canWrite: canWrite,
                             onOpenDetail: () => context.push(
                               '/shows/${profile.id}/commitment/${s.id}',
                             ),
@@ -175,6 +179,7 @@ class _ShowsScaffold extends ConsumerWidget {
                     else
                       ...past.map((s) => _ShowTile(
                             show: s,
+                            canWrite: canWrite,
                             onOpenDetail: () => context.push(
                               '/shows/${profile.id}/commitment/${s.id}',
                             ),
@@ -234,12 +239,14 @@ class _ShowsScaffold extends ConsumerWidget {
 
 class _ShowTile extends StatelessWidget {
   final ArtistShow show;
+  final bool canWrite;
   final VoidCallback onOpenDetail;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _ShowTile({
     required this.show,
+    required this.canWrite,
     required this.onOpenDetail,
     required this.onEdit,
     required this.onDelete,
@@ -266,16 +273,17 @@ class _ShowTile extends StatelessWidget {
                         ),
                   ),
                 ),
-                PopupMenuButton<String>(
-                  onSelected: (v) {
-                    if (v == 'edit') onEdit();
-                    if (v == 'delete') onDelete();
-                  },
-                  itemBuilder: (ctx) => [
-                    const PopupMenuItem(value: 'edit', child: Text('Editar')),
-                    const PopupMenuItem(value: 'delete', child: Text('Excluir')),
-                  ],
-                ),
+                if (canWrite)
+                  PopupMenuButton<String>(
+                    onSelected: (v) {
+                      if (v == 'edit') onEdit();
+                      if (v == 'delete') onDelete();
+                    },
+                    itemBuilder: (ctx) => [
+                      const PopupMenuItem(value: 'edit', child: Text('Editar')),
+                      const PopupMenuItem(value: 'delete', child: Text('Excluir')),
+                    ],
+                  ),
               ],
             ),
             const SizedBox(height: 8),

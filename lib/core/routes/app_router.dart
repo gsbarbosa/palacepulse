@@ -20,6 +20,8 @@ import '../../features/legal/pages/terms_page.dart';
 import '../../features/profile/pages/artist_profile_page.dart';
 import '../../features/profile/pages/complete_profile_page.dart';
 import '../../features/profile/pages/edit_profile_page.dart';
+import '../../features/profile/pages/join_project_page.dart';
+import '../../features/profile/pages/project_members_page.dart';
 import '../../features/public/pages/public_artist_page.dart';
 import '../providers/providers.dart';
 
@@ -45,7 +47,10 @@ GoRouter createAppRouter(Ref ref) {
       final isWorkspaceModule = loc.startsWith('/shows/') ||
           loc.startsWith('/gigbag/') ||
           loc.startsWith('/releases/') ||
-          loc.startsWith('/tasks/');
+          loc.startsWith('/tasks/') ||
+          loc.startsWith('/project-members/');
+
+      final isJoinProject = loc.startsWith('/join-project');
 
       if (user == null) {
         if (isDashboard ||
@@ -53,7 +58,8 @@ GoRouter createAppRouter(Ref ref) {
             isEditProfile ||
             isCompleteProfile ||
             isAdminRoute ||
-            isWorkspaceModule) {
+            isWorkspaceModule ||
+            isJoinProject) {
           return '/login';
         }
         return null;
@@ -75,16 +81,20 @@ GoRouter createAppRouter(Ref ref) {
       if (isWorkspaceModule) {
         final segs = state.uri.pathSegments;
         String? workspaceProfileId;
-        if (segs.length >= 2) {
+          if (segs.length >= 2) {
           if (segs[0] == 'shows' || segs[0] == 'releases' || segs[0] == 'tasks') {
             workspaceProfileId = segs[1];
           } else if (segs[0] == 'gigbag' && segs[1] != 'checklist') {
+            workspaceProfileId = segs[1];
+          } else if (segs[0] == 'project-members') {
             workspaceProfileId = segs[1];
           }
         }
         if (workspaceProfileId != null) {
           final p = await ref.read(profileServiceProvider).getProfile(workspaceProfileId);
-          if (p == null || p.ownerUserId != user.uid) {
+          final ok = p != null &&
+              await ref.read(profileServiceProvider).canAccessProfile(user.uid, workspaceProfileId);
+          if (!ok) {
             return '/dashboard';
           }
         }
@@ -94,7 +104,9 @@ GoRouter createAppRouter(Ref ref) {
         final profileId = state.pathParameters['profileId'];
         if (profileId != null) {
           final profile = await ref.read(profileServiceProvider).getProfile(profileId);
-          if (profile == null || profile.ownerUserId != user.uid) {
+          final canAccess = profile != null &&
+              await ref.read(profileServiceProvider).canAccessProfile(user.uid, profileId);
+          if (!canAccess) {
             return '/dashboard';
           }
         }
@@ -129,6 +141,10 @@ GoRouter createAppRouter(Ref ref) {
       GoRoute(
         path: '/complete-profile',
         builder: (_, __) => const CompleteProfilePage(),
+      ),
+      GoRoute(
+        path: '/join-project',
+        builder: (_, __) => const JoinProjectPage(),
       ),
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
@@ -186,6 +202,13 @@ GoRouter createAppRouter(Ref ref) {
                 },
               ),
             ],
+          ),
+          GoRoute(
+            path: '/project-members/:profileId',
+            builder: (context, state) {
+              final id = state.pathParameters['profileId'] ?? '';
+              return ProjectMembersPage(profileId: id);
+            },
           ),
           GoRoute(
             path: '/perfil',

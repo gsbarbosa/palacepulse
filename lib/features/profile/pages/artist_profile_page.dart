@@ -478,6 +478,7 @@ class _ArtistProfileBodyState extends ConsumerState<_ArtistProfileBody> {
   }
 
   Widget _buildActions(BuildContext context, WidgetRef ref) {
+    final canEditAsync = ref.watch(profileCanEditMetadataProvider(_selectedProfile.id));
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -486,12 +487,50 @@ class _ArtistProfileBodyState extends ConsumerState<_ArtistProfileBody> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            PPButton(
-              label: 'Editar perfil',
-              icon: Icons.edit_rounded,
-              onPressed: () => context.push('/edit-profile/${_selectedProfile.id}'),
-              variant: PPButtonVariant.primary,
-              fullWidth: true,
+            canEditAsync.when(
+              data: (canEdit) {
+                if (canEdit) {
+                  return PPButton(
+                    label: 'Editar perfil',
+                    icon: Icons.edit_rounded,
+                    onPressed: () => context.push('/edit-profile/${_selectedProfile.id}'),
+                    variant: PPButtonVariant.primary,
+                    fullWidth: true,
+                  );
+                }
+                return OutlinedButton.icon(
+                  onPressed: () => context.push('/edit-profile/${_selectedProfile.id}'),
+                  icon: const Icon(Icons.visibility_rounded),
+                  label: const Text('Ver dados do projeto'),
+                );
+              },
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              ),
+              error: (_, __) => OutlinedButton.icon(
+                onPressed: () => context.push('/edit-profile/${_selectedProfile.id}'),
+                icon: const Icon(Icons.visibility_rounded),
+                label: const Text('Ver dados do projeto'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => context.push('/project-members/${_selectedProfile.id}'),
+              icon: const Icon(Icons.group_rounded),
+              label: const Text('Integrantes'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => context.push('/join-project'),
+              icon: const Icon(Icons.vpn_key_rounded),
+              label: const Text('Entrar com código de convite'),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(

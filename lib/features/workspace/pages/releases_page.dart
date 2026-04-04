@@ -268,15 +268,18 @@ class _ReleasesBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(releasesStreamProvider(profile.id));
+    final canWrite = ref.watch(workspaceCanWriteProvider(profile.id)).valueOrNull ?? false;
 
     return WorkspacePageScaffold(
       title: 'Planejar lançamentos',
       subtitle: profile.artistName,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openEditor(context, ref, null),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Novo lançamento'),
-      ),
+      floatingActionButton: canWrite
+          ? FloatingActionButton.extended(
+              onPressed: () => _openEditor(context, ref, null),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Novo lançamento'),
+            )
+          : null,
       body: PageContainer(
         maxWidth: 640,
         child: Column(
@@ -325,6 +328,7 @@ class _ReleasesBody extends ConsumerWidget {
                       else
                         ...upcoming.map((r) => _ReleaseTile(
                               release: r,
+                              canWrite: canWrite,
                               onEdit: () => _openEditor(context, ref, r),
                               onDelete: () async {
                                 final confirm = await showDialog<bool>(
@@ -369,6 +373,7 @@ class _ReleasesBody extends ConsumerWidget {
                       else
                         ...past.map((r) => _ReleaseTile(
                               release: r,
+                              canWrite: canWrite,
                               onEdit: () => _openEditor(context, ref, r),
                               onDelete: () async {
                                 final confirm = await showDialog<bool>(
@@ -421,11 +426,13 @@ class _ReleasesBody extends ConsumerWidget {
 
 class _ReleaseTile extends StatelessWidget {
   final MusicRelease release;
+  final bool canWrite;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _ReleaseTile({
     required this.release,
+    required this.canWrite,
     required this.onEdit,
     required this.onDelete,
   });
@@ -438,7 +445,7 @@ class _ReleaseTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: PPCard(
-        onTap: onEdit,
+        onTap: canWrite ? onEdit : null,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -452,16 +459,17 @@ class _ReleaseTile extends StatelessWidget {
                         ),
                   ),
                 ),
-                PopupMenuButton<String>(
-                  onSelected: (v) {
-                    if (v == 'edit') onEdit();
-                    if (v == 'delete') onDelete();
-                  },
-                  itemBuilder: (ctx) => [
-                    const PopupMenuItem(value: 'edit', child: Text('Editar')),
-                    const PopupMenuItem(value: 'delete', child: Text('Excluir')),
-                  ],
-                ),
+                if (canWrite)
+                  PopupMenuButton<String>(
+                    onSelected: (v) {
+                      if (v == 'edit') onEdit();
+                      if (v == 'delete') onDelete();
+                    },
+                    itemBuilder: (ctx) => [
+                      const PopupMenuItem(value: 'edit', child: Text('Editar')),
+                      const PopupMenuItem(value: 'delete', child: Text('Excluir')),
+                    ],
+                  ),
               ],
             ),
             const SizedBox(height: 6),

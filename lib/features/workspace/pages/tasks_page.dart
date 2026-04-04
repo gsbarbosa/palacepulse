@@ -228,16 +228,21 @@ class _TasksScaffoldState extends ConsumerState<_TasksScaffold> {
     }.toList()
       ..sort();
 
+    final canWrite =
+        ref.watch(workspaceCanWriteProvider(widget.profile.id)).valueOrNull ?? false;
+
     return WorkspacePageScaffold(
       title: 'Tarefas operacionais',
       subtitle: widget.profile.artistName,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: asyncTasks.isLoading
-            ? null
-            : () => _openEditor(null, shows: shows, releases: releases, gigbag: gigbag),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Nova tarefa'),
-      ),
+      floatingActionButton: canWrite
+          ? FloatingActionButton.extended(
+              onPressed: asyncTasks.isLoading
+                  ? null
+                  : () => _openEditor(null, shows: shows, releases: releases, gigbag: gigbag),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Nova tarefa'),
+            )
+          : null,
       body: PageContainer(
         maxWidth: 640,
         child: Column(
@@ -335,6 +340,7 @@ class _TasksScaffoldState extends ConsumerState<_TasksScaffold> {
                             padding: const EdgeInsets.only(bottom: 12),
                             child: _TaskTile(
                               task: t,
+                              canWrite: canWrite,
                               onEdit: () => _openEditor(
                                 t,
                                 shows: shows,
@@ -373,12 +379,14 @@ class _TasksScaffoldState extends ConsumerState<_TasksScaffold> {
 
 class _TaskTile extends StatelessWidget {
   final OperationalTask task;
+  final bool canWrite;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onToggleDone;
 
   const _TaskTile({
     required this.task,
+    required this.canWrite,
     required this.onEdit,
     required this.onDelete,
     required this.onToggleDone,
@@ -412,28 +420,30 @@ class _TaskTile extends StatelessWidget {
                       ),
                 ),
               ),
-              if (task.isOpen)
-                IconButton(
-                  icon: const Icon(Icons.check_circle_outline_rounded),
-                  tooltip: 'Concluir',
-                  onPressed: onToggleDone,
-                )
-              else
-                IconButton(
-                  icon: const Icon(Icons.undo_rounded),
-                  tooltip: 'Reabrir',
-                  onPressed: onToggleDone,
+              if (canWrite) ...[
+                if (task.isOpen)
+                  IconButton(
+                    icon: const Icon(Icons.check_circle_outline_rounded),
+                    tooltip: 'Concluir',
+                    onPressed: onToggleDone,
+                  )
+                else
+                  IconButton(
+                    icon: const Icon(Icons.undo_rounded),
+                    tooltip: 'Reabrir',
+                    onPressed: onToggleDone,
+                  ),
+                PopupMenuButton<String>(
+                  onSelected: (v) {
+                    if (v == 'edit') onEdit();
+                    if (v == 'delete') onDelete();
+                  },
+                  itemBuilder: (ctx) => [
+                    const PopupMenuItem(value: 'edit', child: Text('Editar')),
+                    const PopupMenuItem(value: 'delete', child: Text('Excluir')),
+                  ],
                 ),
-              PopupMenuButton<String>(
-                onSelected: (v) {
-                  if (v == 'edit') onEdit();
-                  if (v == 'delete') onDelete();
-                },
-                itemBuilder: (ctx) => [
-                  const PopupMenuItem(value: 'edit', child: Text('Editar')),
-                  const PopupMenuItem(value: 'delete', child: Text('Excluir')),
-                ],
-              ),
+              ],
             ],
           ),
           if (task.description.isNotEmpty) ...[

@@ -138,18 +138,9 @@ class DashboardOperationPanel extends ConsumerWidget {
                 fontWeight: FontWeight.w800,
               ),
         ),
-        const SizedBox(height: 6),
-        Text(
-          'Resumo do projeto ${profile.artistName} — próximos passos e pendências.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
-                height: 1.4,
-              ),
-        ),
         const SizedBox(height: 20),
         _sectionCard(
           context,
-          title: 'Próximos compromissos',
           child: upcomingRows.isEmpty
               ? _emptyBlock(
                   context,
@@ -160,12 +151,7 @@ class DashboardOperationPanel extends ConsumerWidget {
                   onSecondary: () => context.push('/releases/$profileId'),
                   secondaryLabel: 'Planejar lançamento',
                 )
-              : Column(
-                  children: upcomingRows
-                      .take(8)
-                      .map((row) => _upcomingTile(context, row))
-                      .toList(),
-                ),
+              : _upcomingCommitmentsCarousel(context, upcomingRows.take(8).toList()),
         ),
         const SizedBox(height: 12),
         _sectionCard(
@@ -317,7 +303,7 @@ class DashboardOperationPanel extends ConsumerWidget {
           icon: Icons.event_rounded,
           title: s.title.isEmpty ? 'Show' : s.title,
           subtitle: '${_formatDate(s.date)} · ${s.city.isNotEmpty ? s.city : s.venue}',
-          onTap: () => context.push('/shows/$profileId'),
+          onTap: () => context.push('/shows/$profileId/commitment/${s.id}'),
         ),
       );
     }
@@ -377,19 +363,45 @@ class DashboardOperationPanel extends ConsumerWidget {
     return out.take(4).toList();
   }
 
-  Widget _sectionCard(BuildContext context, {required String title, required Widget child}) {
+  Widget _sectionCard(
+    BuildContext context, {
+    String? title,
+    String? subtitle,
+    required Widget child,
+  }) {
     return PPCard(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: 14),
+          if (title != null) ...[
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                      height: 1.35,
+                    ),
+              ),
+            ],
+            const SizedBox(height: 14),
+          ] else if (subtitle != null) ...[
+            Text(
+              subtitle,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                    height: 1.35,
+                  ),
+            ),
+            const SizedBox(height: 14),
+          ],
           child,
         ],
       ),
@@ -470,39 +482,69 @@ class DashboardOperationPanel extends ConsumerWidget {
     );
   }
 
-  Widget _upcomingTile(BuildContext context, _UpcomingRow row) {
+  static const _carouselCardWidth = 264.0;
+  static const _carouselHeight = 128.0;
+
+  Widget _upcomingCommitmentsCarousel(BuildContext context, List<_UpcomingRow> rows) {
+    return SizedBox(
+      height: _carouselHeight,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        physics: const BouncingScrollPhysics(),
+        itemCount: rows.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, i) => SizedBox(
+          width: _carouselCardWidth,
+          child: _upcomingCarouselCard(context, rows[i]),
+        ),
+      ),
+    );
+  }
+
+  Widget _upcomingCarouselCard(BuildContext context, _UpcomingRow row) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.surfaceSecondary,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: row.onTap,
-        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Row(
+          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(row.icon, size: 22, color: AppColors.primary),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      row.title,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      row.subtitle,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                    ),
-                  ],
-                ),
+              Row(
+                children: [
+                  Icon(row.icon, size: 20, color: AppColors.primary),
+                  const Spacer(),
+                  Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary, size: 22),
+                ],
               ),
-              Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
+              const SizedBox(height: 8),
+              Text(
+                row.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      height: 1.25,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                row.subtitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                      height: 1.3,
+                    ),
+              ),
             ],
           ),
         ),

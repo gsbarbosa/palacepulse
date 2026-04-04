@@ -258,6 +258,8 @@ class _CommitmentDetailPageState extends ConsumerState<CommitmentDetailPage>
           );
         }
         final prof = profile;
+        final canWrite =
+            ref.watch(workspaceCanWriteProvider(prof.id)).valueOrNull ?? false;
 
         final showsAsync = ref.watch(showsStreamProvider(prof.id));
         final gigbagAsync = ref.watch(gigbagStreamProvider(prof.id));
@@ -304,7 +306,7 @@ class _CommitmentDetailPageState extends ConsumerState<CommitmentDetailPage>
                 allTasks.where((t) => t.linkedShowId == currentShow.id).toList();
 
             Widget? fab;
-            if (_tabController.index == 1) {
+            if (canWrite && _tabController.index == 1) {
               fab = FloatingActionButton.extended(
                 onPressed: gigbagAsync.isLoading
                     ? null
@@ -312,7 +314,7 @@ class _CommitmentDetailPageState extends ConsumerState<CommitmentDetailPage>
                 icon: const Icon(Icons.add_rounded),
                 label: const Text('Checklist'),
               );
-            } else if (_tabController.index == 2) {
+            } else if (canWrite && _tabController.index == 2) {
               fab = FloatingActionButton.extended(
                 onPressed: tasksAsync.isLoading
                     ? null
@@ -374,29 +376,31 @@ class _CommitmentDetailPageState extends ConsumerState<CommitmentDetailPage>
                             ],
                           ),
                         ),
-                        IconButton(
-                          tooltip: 'Editar',
-                          onPressed: () => showArtistShowEditor(
-                            context,
-                            ref,
-                            profile: prof,
-                            existing: currentShow,
-                          ),
-                          icon: const Icon(Icons.edit_rounded),
-                        ),
-                        PopupMenuButton<String>(
-                          onSelected: (v) {
-                            if (v == 'delete') {
-                              _confirmDeleteShow(context, prof, currentShow);
-                            }
-                          },
-                          itemBuilder: (ctx) => [
-                            const PopupMenuItem(
-                              value: 'delete',
-                              child: Text('Excluir compromisso'),
+                        if (canWrite) ...[
+                          IconButton(
+                            tooltip: 'Editar',
+                            onPressed: () => showArtistShowEditor(
+                              context,
+                              ref,
+                              profile: prof,
+                              existing: currentShow,
                             ),
-                          ],
-                        ),
+                            icon: const Icon(Icons.edit_rounded),
+                          ),
+                          PopupMenuButton<String>(
+                            onSelected: (v) {
+                              if (v == 'delete') {
+                                _confirmDeleteShow(context, prof, currentShow);
+                              }
+                            },
+                            itemBuilder: (ctx) => [
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Text('Excluir compromisso'),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -425,6 +429,7 @@ class _CommitmentDetailPageState extends ConsumerState<CommitmentDetailPage>
                           tasks: linkedTasks,
                           loading: tasksAsync.isLoading,
                           error: tasksAsync.hasError ? tasksAsync.error : null,
+                          canWrite: canWrite,
                           onRetry: () => ref.invalidate(operationalTasksStreamProvider(prof.id)),
                           onEditTask: (t) => showOperationalTaskEditor(
                             context,
@@ -637,6 +642,7 @@ class _TasksTab extends StatelessWidget {
     required this.tasks,
     required this.loading,
     required this.error,
+    required this.canWrite,
     required this.onRetry,
     required this.onEditTask,
   });
@@ -644,6 +650,7 @@ class _TasksTab extends StatelessWidget {
   final List<OperationalTask> tasks;
   final bool loading;
   final Object? error;
+  final bool canWrite;
   final VoidCallback onRetry;
   final void Function(OperationalTask t) onEditTask;
 
@@ -682,7 +689,7 @@ class _TasksTab extends StatelessWidget {
       itemBuilder: (context, i) {
         final t = tasks[i];
         return PPCard(
-          onTap: () => onEditTask(t),
+          onTap: canWrite ? () => onEditTask(t) : null,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

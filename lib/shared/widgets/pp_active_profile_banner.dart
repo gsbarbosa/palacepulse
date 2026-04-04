@@ -42,7 +42,7 @@ class PPActiveProfileBanner extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Shows, tarefas, GigBag e lançamentos usam este projeto. '
+                    'Compromissos, lançamentos, GigBag e tarefas usam este projeto. '
                     'Se criar outro perfil, você poderá alternar em "Trabalhando como".',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.textSecondary,

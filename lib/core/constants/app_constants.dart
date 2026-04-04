@@ -25,7 +25,18 @@ class AppConstants {
   static const String usersPath = 'users';
   static const String profilesPath = 'profiles';
   static const String profilesByOwnerPath = 'profiles_by_owner';
+  /// Acesso compartilhado: `user_profile_access/{uid}/{profileId}` → role, joinedAt
+  static const String userProfileAccessPath = 'user_profile_access';
+  /// Membros por projeto: `profile_members/{profileId}/{memberUid}`
+  static const String profileMembersPath = 'profile_members';
+  /// Convites por token: `invite_by_code/{token}` (criação pelo dono; uso via Cloud Function)
+  static const String inviteByCodePath = 'invite_by_code';
   static const String adminUsersPath = 'admin_users';
+
+  /// Papéis em projeto compartilhado (valor em RTDB)
+  static const String roleAdmin = 'admin';
+  static const String roleEditor = 'editor';
+  static const String roleViewer = 'viewer';
 
   /// Agenda de shows por perfil: `shows/{profileId}/{showId}`
   static const String showsPath = 'shows';

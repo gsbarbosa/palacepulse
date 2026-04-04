@@ -8,6 +8,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_gradients.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../shared/models/user_profile.dart';
+import '../../shared/widgets/app_usage_tutorial.dart';
 import '../../shared/widgets/pp_logo.dart';
 
 /// Shell autenticado: navegação persistente + contexto de projeto sempre visível.
@@ -33,6 +34,8 @@ class _WorkspaceShellState extends ConsumerState<WorkspaceShell> {
         if (pid != 'checklist') {
           ref.read(dashboardWorkspaceProfileIdProvider.notifier).state = pid;
         }
+      } else if (head == 'project-members') {
+        ref.read(dashboardWorkspaceProfileIdProvider.notifier).state = parts[1];
       }
     }
   }
@@ -40,9 +43,9 @@ class _WorkspaceShellState extends ConsumerState<WorkspaceShell> {
   int _railIndex(String path) {
     if (path.startsWith('/dashboard')) return 0;
     if (path.startsWith('/shows/')) return 1;
-    if (path.startsWith('/gigbag/')) return 2;
-    if (path.startsWith('/tasks/')) return 3;
-    if (path.startsWith('/releases/')) return 4;
+    if (path.startsWith('/releases/')) return 2;
+    if (path.startsWith('/gigbag/')) return 3;
+    if (path.startsWith('/tasks/')) return 4;
     if (path == '/perfil' || path.startsWith('/edit-profile')) return 5;
     return 0;
   }
@@ -56,13 +59,13 @@ class _WorkspaceShellState extends ConsumerState<WorkspaceShell> {
         context.go('/shows/$profileId');
         break;
       case 2:
-        context.go('/gigbag/$profileId');
+        context.go('/releases/$profileId');
         break;
       case 3:
-        context.go('/tasks/$profileId');
+        context.go('/gigbag/$profileId');
         break;
       case 4:
-        context.go('/releases/$profileId');
+        context.go('/tasks/$profileId');
         break;
       case 5:
         context.go('/perfil');
@@ -185,10 +188,10 @@ class _WorkspaceRail extends StatelessWidget {
 
   static const _destinations = [
     _RailItem(Icons.explore_rounded, 'Central'),
-    _RailItem(Icons.event_rounded, 'Shows'),
+    _RailItem(Icons.event_rounded, 'Compromisso'),
+    _RailItem(Icons.album_rounded, 'Lançamentos'),
     _RailItem(Icons.checklist_rounded, 'GigBag'),
     _RailItem(Icons.task_alt_rounded, 'Tarefas'),
-    _RailItem(Icons.album_rounded, 'Lançamentos'),
     _RailItem(Icons.person_rounded, 'Meu espaço'),
   ];
 
@@ -404,6 +407,11 @@ class _WorkspaceTopBar extends ConsumerWidget {
                       child: const Text('Admin'),
                     ),
                   IconButton(
+                    tooltip: 'Como usar — tour passo a passo',
+                    onPressed: () => showAppUsageTutorial(context),
+                    icon: const Icon(Icons.school_rounded),
+                  ),
+                  IconButton(
                     tooltip: 'Sair',
                     onPressed: () async {
                       ref.read(dashboardWorkspaceProfileIdProvider.notifier).state = null;
@@ -426,6 +434,11 @@ class _WorkspaceTopBar extends ConsumerWidget {
                           onPressed: () => context.push('/admin'),
                           child: const Text('Admin'),
                         ),
+                      IconButton(
+                        tooltip: 'Como usar — tour passo a passo',
+                        onPressed: () => showAppUsageTutorial(context),
+                        icon: const Icon(Icons.school_rounded),
+                      ),
                       IconButton(
                         tooltip: 'Sair',
                         onPressed: () async {
@@ -472,7 +485,12 @@ class _WorkspaceBottomNav extends StatelessWidget {
         NavigationDestination(
           icon: Icon(Icons.event_outlined),
           selectedIcon: Icon(Icons.event_rounded),
-          label: 'Shows',
+          label: 'Comprom.',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.album_outlined),
+          selectedIcon: Icon(Icons.album_rounded),
+          label: 'Lanç.',
         ),
         NavigationDestination(
           icon: Icon(Icons.checklist_outlined),
@@ -483,11 +501,6 @@ class _WorkspaceBottomNav extends StatelessWidget {
           icon: Icon(Icons.task_alt_outlined),
           selectedIcon: Icon(Icons.task_alt_rounded),
           label: 'Tarefas',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.album_outlined),
-          selectedIcon: Icon(Icons.album_rounded),
-          label: 'Lanç.',
         ),
         NavigationDestination(
           icon: Icon(Icons.person_outline_rounded),

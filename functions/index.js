@@ -41,6 +41,60 @@ function escHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
+/**
+ * Aceita convite de projeto: grava user_profile_access e profile_members e incrementa uses.
+ */
+exports.acceptInvite = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Faça login para aceitar o convite');
+  }
+  const token = data && data.token;
+  if (!token || typeof token !== 'string' || token.length < 8 || token.length > 64) {
+    throw new functions.https.HttpsError('invalid-argument', 'Código de convite inválido');
+  }
+  const uid = context.auth.uid;
+  const db = admin.database();
+  const invRef = db.ref(`invite_by_code/${token}`);
+  const snap = await invRef.once('value');
+  if (!snap.exists()) {
+    throw new functions.https.HttpsError('not-found', 'Convite não encontrado');
+  }
+  const inv = snap.val();
+  const profileId = inv.profileId;
+  const role = inv.role === 'admin' || inv.role === 'viewer' ? inv.role : 'editor';
+  const maxUses = typeof inv.maxUses === 'number' ? inv.maxUses : 30;
+  let uses = typeof inv.uses === 'number' ? inv.uses : 0;
+  const expiresAt = inv.expiresAt;
+  if (!profileId || typeof profileId !== 'string') {
+    throw new functions.https.HttpsError('failed-precondition', 'Convite corrompido');
+  }
+  if (expiresAt != null && typeof expiresAt === 'number' && Date.now() > expiresAt) {
+    throw new functions.https.HttpsError('failed-precondition', 'Este convite expirou');
+  }
+  if (uses >= maxUses) {
+    throw new functions.https.HttpsError('resource-exhausted', 'Este convite atingiu o limite de usos');
+  }
+  const profSnap = await db.ref(`profiles/${profileId}`).once('value');
+  if (!profSnap.exists()) {
+    throw new functions.https.HttpsError('not-found', 'Projeto não existe mais');
+  }
+  const ownerId = profSnap.val().ownerUserId;
+  if (ownerId === uid) {
+    return { ok: true, profileId, alreadyOwner: true };
+  }
+  const accessSnap = await db.ref(`user_profile_access/${uid}/${profileId}`).once('value');
+  if (accessSnap.exists()) {
+    return { ok: true, profileId, alreadyMember: true };
+  }
+  const joinedAt = new Date().toISOString();
+  const updates = {};
+  updates[`user_profile_access/${uid}/${profileId}`] = { role, joinedAt };
+  updates[`profile_members/${profileId}/${uid}`] = { role, joinedAt };
+  updates[`invite_by_code/${token}/uses`] = uses + 1;
+  await db.ref().update(updates);
+  return { ok: true, profileId, role };
+});
+
 /** Incrementa stats/profile_views/{profileId} */
 exports.recordProfileView = functions.https.onCall(async (data) => {
   const profileId = data.profileId;
