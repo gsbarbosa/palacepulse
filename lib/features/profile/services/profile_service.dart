@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/firebase/app_firebase_database.dart';
+import '../../../../core/firebase/https_callable_web_client.dart';
 import '../../../../core/firebase/rtdb_rest_client.dart';
 import '../../../../core/utils/profile_lookup.dart';
 import '../../../../shared/models/profile_member.dart';
@@ -585,9 +586,17 @@ class ProfileService {
   Future<Map<String, dynamic>> acceptInviteWithCallable(String token) async {
     final trimmed = token.trim();
     if (trimmed.isEmpty) throw StateError('empty_token');
-    final callable = FirebaseFunctions.instance.httpsCallable('acceptInvite');
-    final result = await callable.call(<String, dynamic>{'token': trimmed});
-    final data = result.data;
+    final dynamic data;
+    if (kIsWeb) {
+      data = await postHttpsCallableJson(
+        functionName: 'acceptInvite',
+        data: <String, dynamic>{'token': trimmed},
+      );
+    } else {
+      final callable = FirebaseFunctions.instance.httpsCallable('acceptInvite');
+      final result = await callable.call(<String, dynamic>{'token': trimmed});
+      data = result.data;
+    }
     if (data is! Map) return {};
     return Map<String, dynamic>.from(
       data.map((k, v) => MapEntry(k.toString(), v)),
